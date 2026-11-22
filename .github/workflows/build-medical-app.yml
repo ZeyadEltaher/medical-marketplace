@@ -28,6 +28,7 @@ jobs:
           docker build \
             --pull \
             --file Dockerfile \
+            --tag medical-app:latest \
             --tag ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/medical-app:latest \
             .
 
