@@ -279,4 +279,4 @@ Treat the current configuration as a development and infrastructure-lab baseline
 
 ## License
 
-No license is declared in this repository at the time this README was written. Unless a license is added, the default copyright rules apply and reuse is not automatically permitted.
+This project is licensed under the [MIT License](LICENSE).
