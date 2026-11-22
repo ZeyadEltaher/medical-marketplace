@@ -54,6 +54,261 @@ The intended request path is:
 
 The application nodes are intended to be stateless with shared state provided by SQL Server and Redis. Redis is used for distributed application concerns; SQL Server remains the primary relational data store.
 
+### Infrastructure Diagrams
+
+These diagrams are rendered by GitHub directly from Mermaid source and are based on the current Docker Compose files, Nginx/Keepalived configuration, ASP.NET Core startup pipeline, and the transfer-request implementation.
+
+#### 1. Container and network topology
+
+```mermaid
+flowchart TB
+    Client["Browser / Client"]
+
+    subgraph ProxyNet["Docker network: medical-ha (172.30.0.0/24)"]
+        VIP["Keepalived VIP<br/>172.30.0.100:443"]
+
+        subgraph Proxy1["Proxy node 1"]
+            N1["medical-nginx-1<br/>172.30.0.11"]
+            K1["medical-keepalived-1<br/>shares nginx1 network namespace"]
+            K1 -. "health-checks 127.0.0.1:8080/health" .-> N1
+        end
+
+        subgraph Proxy2["Proxy node 2"]
+            N2["medical-nginx-2<br/>172.30.0.12"]
+            K2["medical-keepalived-2<br/>shares nginx2 network namespace"]
+            K2 -. "health-checks 127.0.0.1:8080/health" .-> N2
+        end
+
+        K1 <-->|"VRRP unicast"| K2
+        VIP -. "active on MASTER node" .-> N1
+        VIP -. "moves on failover" .-> N2
+    end
+
+    subgraph AppNet["Application containers (medical-ha network)"]
+        A1["medical-app-1<br/>172.30.0.13:7110"]
+        A2["medical-app-2<br/>172.30.0.14:7110"]
+        A3["medical-app-3<br/>172.30.0.15:7110"]
+
+        P1["ASP.NET Core process<br/>Medical.PL + Medical.BLL + Medical.DAL"]
+        P2["ASP.NET Core process<br/>Medical.PL + Medical.BLL + Medical.DAL"]
+        P3["ASP.NET Core process<br/>Medical.PL + Medical.BLL + Medical.DAL"]
+
+        A1 --- P1
+        A2 --- P2
+        A3 --- P3
+    end
+
+    subgraph RedisNet["External Docker network: redis-cluster (172.31.0.0/24)"]
+        R1["redis1<br/>172.31.0.20:6379"]
+        R2["redis2<br/>172.31.0.21:6379"]
+        R3["redis3<br/>172.31.0.22:6379"]
+        R4["redis4<br/>172.31.0.23:6379"]
+        R5["redis5<br/>172.31.0.24:6379"]
+        R6["redis6<br/>172.31.0.25:6379"]
+        RNote["Redis Cluster<br/>6 configured Redis containers"]
+    end
+
+    subgraph SqlNet["Docker network: sqlserver-ha (172.32.0.0/24)"]
+        S1["sqlserver-1<br/>172.32.0.10:1433"]
+        S2["sqlserver-2<br/>172.32.0.11:1433"]
+        S3["sqlserver-3<br/>172.32.0.12:1433"]
+        SQLAG["AG listener endpoint<br/>172.32.0.100:1433<br/>(cluster-managed; not a Compose service)"]
+        S1 --- S2
+        S2 --- S3
+        SQLAG -. "availability-group routing" .- S1
+        SQLAG -. "availability-group routing" .- S2
+        SQLAG -. "availability-group routing" .- S3
+    end
+
+    Client --> VIP
+    N1 -->|"HTTPS upstream / least_conn"| A1
+    N1 --> A2
+    N1 --> A3
+    N2 -->|"HTTPS upstream / least_conn"| A1
+    N2 --> A2
+    N2 --> A3
+
+    P1 -->|"StackExchange.Redis<br/>configured endpoints"| RNote
+    P2 -->|"StackExchange.Redis<br/>configured endpoints"| RNote
+    P3 -->|"StackExchange.Redis<br/>configured endpoints"| RNote
+
+    P1 -->|"SQL connection string"| SQLAG
+    P2 -->|"SQL connection string"| SQLAG
+    P3 -->|"SQL connection string"| SQLAG
+
+    RNote --- R1
+    RNote --- R2
+    RNote --- R3
+    RNote --- R4
+    RNote --- R5
+    RNote --- R6
+```
+
+**Application container internals:** each of the three application containers runs one ASP.NET Core process. The three projects are application layers, not separate containers:
+
+```mermaid
+flowchart TB
+    Request["HTTP request"]
+    PL["Medical.PL<br/>Controllers / Middleware / MVC"]
+    BLL["Medical.BLL<br/>Services / Business Logic"]
+    DAL["Medical.DAL<br/>EF Core / Repositories"]
+    SQL[("SQL Server")]
+    Redis[("Redis Cluster")]
+
+    Request --> PL
+    PL --> BLL
+    BLL --> DAL
+    DAL --> SQL
+    BLL --> Redis
+```
+
+The BLL Redis integrations include the custom distributed cache, distributed lock, and distributed rate limiter. Redis also stores the shared ASP.NET Core Data Protection key ring. The SQL endpoint shown above is the address configured in the application connection string; it is expected to be provided by the SQL Server HA/availability-group setup, not by a Compose-defined listener container.
+
+#### 2. Sequence: submit a license transfer request
+
+This sequence follows `UserRequestController.SendRequest`, `UserRequestServices.SendRequestAsync`, the Redis lock provider/core/waiter/handler, and `LicenseTransferRequestRepository`.
+
+The request is authenticated before the rate-limit middleware runs. The middleware applies the global Redis rate-limit policy; authorization then runs before the `[Authorize]` controller action is invoked.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Buyer
+    participant Nginx
+    participant PL as Medical.PL
+    participant Auth as Authentication / Authorization
+    participant RL as RateLimitMiddleware
+    participant Rate as RedisRateLimiter
+    participant Redis as Redis
+    participant Controller as UserRequestController
+    participant Service as UserRequestServices
+    participant Provider as RedisLockProvider
+    participant Core as RedisLockCore
+    participant Waiter as RedisLockWaiter
+    participant Handler as RedisLockHandler
+    participant Repo as LicenseTransferRequestRepository
+    participant DB as SQL Server
+
+    Buyer->>Nginx: POST /user/request/{licenseId}/send
+    Nginx->>PL: HTTPS proxy to app node
+    PL->>Auth: UseAuthentication
+    Auth-->>PL: Authenticated ClaimsPrincipal
+    PL->>RL: RateLimitMiddleware
+
+    RL->>Rate: TryAcquireAsync(global identity key)
+    Rate->>Redis: Lua: INCR + PEXPIRE + PTTL
+    Redis-->>Rate: Current count and TTL
+    Rate-->>RL: RateLimitResult
+
+    alt Global limit exceeded
+        RL-->>Buyer: HTTP 429 + Retry-After
+    else Request allowed
+        RL->>Auth: Continue to UseAuthorization
+        Auth->>Controller: Authorized endpoint invocation
+        Controller->>Controller: Read NameIdentifier claim
+        Controller->>Service: SendRequestAsync(licenseId, userId, cancellationToken)
+
+        Service->>Provider: TryAcquireAsync(resource, Exclusive, 5s wait, 30s lease)
+        Note over Service,Provider: Lock key = request:license:{licenseId}:buyer:{userId}
+        Provider->>Core: AcquireAsync(lock request)
+        Core->>Redis: Execute Acquire Lua script atomically
+
+        alt Lock granted immediately
+            Redis-->>Core: Granted
+            Core-->>Provider: Granted
+            Provider-->>Service: RedisLockHandler
+        else Lock is queued
+            Redis-->>Core: StillWaiting
+            Core-->>Provider: StillWaiting
+            Provider->>Waiter: WaitAsync(deadline, cancellationToken)
+            Waiter->>Redis: Subscribe to resource Pub/Sub channel
+            Waiter->>Core: PollAsync(lock request)
+            Core->>Redis: Execute Poll Lua script
+            Redis-->>Core: Lock status
+
+            loop Until granted, timeout, or cancellation
+                alt Still waiting
+                    Waiter->>Waiter: Wait for Pub/Sub signal or WaitTick
+                    Waiter->>Core: PollAsync(lock request)
+                    Core->>Redis: Poll Lua script
+                    Redis-->>Core: Current lock status
+                else Queue entry evicted
+                    Waiter->>Core: AcquireAsync(lock request) to rejoin
+                    Core->>Redis: Acquire Lua script
+                    Redis-->>Core: Rejoin result
+                end
+            end
+
+            alt Lock granted
+                Waiter-->>Provider: true
+                Provider-->>Service: RedisLockHandler
+            else Timeout
+                Waiter->>Core: CancelAsync
+                Core->>Redis: Cancel Lua script
+                Provider-->>Service: null
+            end
+        end
+
+        alt Lock unavailable
+            Service-->>Controller: Failure result
+            Controller-->>Buyer: Redirect with error message
+        else Lock acquired
+            Handler->>Core: Background RenewAsync (about every lease / 3)
+            Core->>Redis: Renew Lua script
+
+            Service->>Repo: GetByIdAsync(licenseId)
+            Repo->>DB: SELECT license
+            DB-->>Repo: License or null
+            Repo-->>Service: License
+
+            alt License missing / buyer is owner / license not approved
+                Service-->>Controller: Validation failure
+            else License is eligible
+                Service->>Repo: GetLicensePendingRequestForBuyerAsync(licenseId, userId)
+                Repo->>DB: SELECT matching pending request
+                DB-->>Repo: Existing request or null
+                Repo-->>Service: Query result
+
+                alt Pending request already exists
+                    Service-->>Controller: RequestAlreadySent
+                else No pending request
+                    Service->>Service: license.ToTransferRequest(userId)
+                    Service->>Repo: RequestAsync(request)
+                    Repo->>DB: INSERT + SaveChangesAsync
+                    DB-->>Repo: Rows affected
+
+                    alt Insert succeeded
+                        Repo-->>Service: entries > 0
+                        Service-->>Controller: Success result
+                    else Database update failed
+                        DB-->>Repo: DbUpdateException
+                        Service-->>Controller: Failure result
+                    end
+                end
+            end
+
+            Note over Service,Handler: await using disposes the lock on method exit
+            Service->>Handler: DisposeAsync
+            Handler->>Core: ReleaseAsync
+            Core->>Redis: Release Lua script
+            Redis-->>Core: Release result
+        end
+
+        Controller-->>Buyer: Redirect with success or error message
+    end
+```
+
+**Implementation details represented above:**
+
+- The send-request lock is exclusive and scoped to `request:license:{licenseId}:buyer:{userId}`.
+- The lock acquisition waits up to 5 seconds and requests a 30-second lease.
+- `RedisLockCore` executes the lock Lua scripts; `RedisLockWaiter` handles Pub/Sub wake-ups, polling, timeout, cancellation, and queue re-entry.
+- `RedisLockHandler` renews the lease at approximately one-third of its duration and releases it during asynchronous disposal.
+- The service checks that the license exists, is not owned by the buyer, is approved, and has no existing pending request from that buyer before inserting the transfer request.
+- The current lock key serializes submissions by the same buyer for the same license. It does not serialize different buyers submitting requests for that same license.
+
+**Diagram scope:** these diagrams describe the repository's configured topology and code path. Compose files define the containers and networks, but Redis Cluster formation and SQL Server HA/availability-group initialization are separate operational steps. A container diagram does not imply that those clusters are currently initialized or healthy.
+
 ### Infrastructure components
 
 | Component | Repository location | Purpose |
