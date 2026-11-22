@@ -75,3 +75,6 @@ Thumbs.db
 **/*.key
 **/*.pfx
 **/*.pem
+
+# Track environment variable templates
+!**/*.env.example
