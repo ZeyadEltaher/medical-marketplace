@@ -1,0 +1,350 @@
+@using Medical.DAL.Constants
+@model Medical.BLL.ViewModels.License.LicenseEditViewModel
+
+@{
+    ViewData["Title"] = "Edit License";
+
+    string statusText = Model.LicenseStatus?.ToString() ?? "Unknown";
+    string statusClass = Model.LicenseStatus switch
+    {
+        LicenseStatus.Approved => "ok",
+        LicenseStatus.Rejected => "bad",
+        LicenseStatus.Pending => "warn",
+        _ => ""
+    };
+}
+
+<style>
+    .edit-license {
+        --c-ink: var(--medical-dark, #1c2733);
+        --c-muted: var(--medical-muted, #4f5b66);
+        --c-line: var(--medical-border, #d4d6cf);
+        --c-tint: var(--medical-surface, #e8e8e2);
+        --c-card: var(--medical-card, #fafaf8);
+        --c-accent: var(--medical-primary, #1d5c63);
+        --c-error: #a63232;
+        color: var(--c-ink);
+        font-size: 1.0625rem;
+        max-width: 60rem;
+    }
+
+    .edit-license .crumbs { margin-bottom: 1.25rem; color: var(--c-muted); font-size: 1rem; }
+    .edit-license .crumbs a { color: var(--c-accent); font-weight: 600; text-underline-offset: 3px; }
+    .edit-license .crumbs span { margin: 0 .4rem; }
+
+    .edit-license h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .3rem; }
+    .edit-license .lead-text { color: var(--c-muted); margin: 0 0 1.5rem; line-height: 1.6; }
+
+    .edit-license .panel { background: var(--c-card); border: 1px solid var(--c-line); border-top: 3px solid var(--c-accent); border-radius: 4px; }
+
+    .edit-license .section-title {
+        margin: 0; padding: .8rem 1.5rem;
+        font-size: .875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--c-muted); background: var(--c-tint);
+        border-top: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line);
+    }
+    .edit-license .section-title:first-child { border-top: 0; }
+    .edit-license .section-body { padding: 1.4rem 1.5rem 1.6rem; }
+
+    .edit-license .req-note { padding: .9rem 1.5rem; color: var(--c-muted); font-size: 1rem; }
+    .edit-license .req { color: var(--c-error); font-weight: 700; margin-left: .15rem; }
+
+    .edit-license .field-label { display: block; margin-bottom: .35rem; font-size: 1rem; font-weight: 600; }
+    .edit-license .form-control-custom,
+    .edit-license .form-select-custom {
+        display: block; width: 100%; min-height: 48px; padding: .5rem .8rem;
+        border: 1px solid #b4bbb9; border-radius: 4px; background-color: var(--c-card);
+        font-size: 1.0625rem; color: var(--c-ink);
+    }
+    .edit-license textarea.form-control-custom { min-height: 110px; resize: vertical; line-height: 1.5; }
+    .edit-license .form-control-custom:focus,
+    .edit-license .form-select-custom:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(29, 92, 99, .18); outline: 0; }
+    .edit-license .input-validation-error { border-color: var(--c-error) !important; }
+
+    .edit-license .input-group .form-control-custom { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .edit-license .input-group-text {
+        border: 1px solid #b4bbb9; border-left: 0; border-radius: 0 4px 4px 0;
+        background: var(--c-tint); color: var(--c-muted); font-weight: 600; font-size: 1rem;
+    }
+
+    .edit-license .field-error { display: block; margin-top: .3rem; color: var(--c-error); font-size: .92rem; }
+    .edit-license .help-text { margin: .35rem 0 0; color: var(--c-muted); font-size: .95rem; }
+
+    /* Summary: hidden until the server returns an error */
+    .edit-license .validation-summary-valid { display: none; }
+    .edit-license .form-error {
+        margin-bottom: 1.25rem; padding: .7rem .9rem;
+        border: 1px solid #e3b9b9; border-left: 3px solid var(--c-error);
+        border-radius: 4px; background: #f8ecec; color: #6f2222; font-size: 1rem;
+    }
+    .edit-license .form-error ul { margin: 0; padding-left: 1.1rem; }
+
+    .edit-license .check-row { display: flex; gap: .75rem; align-items: flex-start; }
+    .edit-license .check-row .form-check-input { width: 1.25rem; height: 1.25rem; margin-top: .2rem; border-color: #8f9a96; }
+    .edit-license .check-row .form-check-input:checked { background-color: var(--c-accent); border-color: var(--c-accent); }
+    .edit-license .check-row .form-check-input:focus { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(29, 92, 99, .18); }
+    .edit-license .check-row label { font-weight: 600; }
+
+    .edit-license .actions {
+        display: flex; flex-direction: column-reverse; gap: .6rem; justify-content: flex-end;
+        padding: 1.1rem 1.5rem; border-top: 1px solid var(--c-line); background: var(--c-tint);
+    }
+    .edit-license .actions .btn-medical,
+    .edit-license .actions .btn-outline-medical { font-size: 1.0625rem; padding: .6rem 1.4rem; text-align: center; }
+
+    @@media (min-width: 576px) {
+        .edit-license .actions { flex-direction: row; }
+    }
+    @@media (max-width: 575.98px) {
+        .edit-license h1 { font-size: 1.6rem; }
+        .edit-license .section-body, .edit-license .section-title, .edit-license .req-note, .edit-license .actions { padding-left: 1rem; padding-right: 1rem; }
+    }
+
+    /* Edit-specific */
+    .edit-license .req-note { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; }
+    .edit-license .tag {
+        display: inline-block; padding: .1rem .6rem; border: 1px solid var(--c-line); border-radius: 3px;
+        font-size: .95rem; font-weight: 600; white-space: nowrap; color: var(--c-muted); background: var(--c-card);
+    }
+    .edit-license .tag.ok   { color: #1f6b3a; border-color: #b9dcc5; background: #f1f8f3; }
+    .edit-license .tag.warn { color: #96501f; border-color: #e6c9b3; background: #fbf3ec; }
+    .edit-license .tag.bad  { color: #a63232; border-color: #e3b9b9; background: #f8ecec; }
+
+    .edit-license .current-doc {
+        display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+        margin-bottom: 1.1rem; padding: .85rem 1rem;
+        border: 1px solid var(--c-line); border-radius: 4px; background: var(--c-tint);
+    }
+    .edit-license .current-doc strong { display: block; }
+    .edit-license .current-doc span { color: var(--c-muted); font-size: .95rem; }
+    .edit-license .current-doc a { color: var(--c-accent); font-weight: 600; text-underline-offset: 3px; white-space: nowrap; }
+</style>
+
+<div class="edit-license">
+
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <a asp-controller="UserLicense" asp-action="List">&larr; My licenses</a>
+        <span>/</span>
+        <a asp-controller="UserLicense" asp-action="Details" asp-route-licenseId="@Model.Id">License details</a>
+        <span>/</span>
+        Edit
+    </nav>
+
+    <h1>Edit product license</h1>
+    <p class="lead-text">Update the details of your license. Leave the document as it is unless you need to replace it.</p>
+
+    <form asp-controller="UserLicense"
+          asp-action="Edit"
+          asp-route-licenseId="@Model.Id"
+          method="post"
+          enctype="multipart/form-data">
+
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <div asp-validation-summary="All" class="form-error" role="alert"></div>
+
+        <div class="panel">
+
+            <div class="req-note">
+                <span>Fields marked with <span class="req">*</span> are required.</span>
+                <span>Status: <span class="tag @statusClass">@statusText</span></span>
+            </div>
+
+            @foreach (var productName in Model.ProductNames)
+            {
+                <input type="hidden" name="ProductNames" value="@productName" />
+            }
+
+            <!-- Product -->
+            <h2 class="section-title">Product</h2>
+            <div class="section-body">
+                <div class="row g-3">
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="ProductName" class="field-label">Product name<span class="req">*</span></label>
+                        <select asp-for="ProductName" class="form-select form-select-custom">
+                            <option value="">Select product</option>
+                            @foreach (string productName in Model.ProductNames)
+                            {
+                                <option value="@productName">@productName</option>
+                            }
+                        </select>
+                        <span asp-validation-for="ProductName" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="LicenseCategory" class="field-label">License category<span class="req">*</span></label>
+                        <select asp-for="LicenseCategory" class="form-select form-select-custom">
+                            <option value="">Select category</option>
+                            @foreach (LicenseCategory category in Enum.GetValues<LicenseCategory>())
+                            {
+                                <option value="@category">@category</option>
+                            }
+                        </select>
+                        <span asp-validation-for="LicenseCategory" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="TradeName" class="field-label">Trade name<span class="req">*</span></label>
+                        <input asp-for="TradeName" class="form-control form-control-custom"
+                               placeholder="Registered trade name" />
+                        <span asp-validation-for="TradeName" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="DosageForm" class="field-label">Dosage form<span class="req">*</span></label>
+                        <input asp-for="DosageForm" class="form-control form-control-custom"
+                               placeholder="e.g. Tablet, Capsule, Syrup" />
+                        <span asp-validation-for="DosageForm" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="ActiveIngredients" class="field-label">Active ingredients<span class="req">*</span></label>
+                        <textarea asp-for="ActiveIngredients" class="form-control form-control-custom"
+                                  placeholder="List the active ingredients"></textarea>
+                        <span asp-validation-for="ActiveIngredients" class="field-error"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Registration -->
+            <h2 class="section-title">Registration</h2>
+            <div class="section-body">
+                <div class="row g-3">
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="RegistrationNumber" class="field-label">Registration number<span class="req">*</span></label>
+                        <input asp-for="RegistrationNumber" class="form-control form-control-custom"
+                               placeholder="Registration number" />
+                        <span asp-validation-for="RegistrationNumber" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="CurrentOwnerCompany" class="field-label">Current owner company<span class="req">*</span></label>
+                        <input asp-for="CurrentOwnerCompany" class="form-control form-control-custom"
+                               placeholder="Company or organization name" />
+                        <span asp-validation-for="CurrentOwnerCompany" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="IssueDate" class="field-label">Issue date<span class="req">*</span></label>
+                        <input asp-for="IssueDate" type="date" class="form-control form-control-custom" />
+                        <span asp-validation-for="IssueDate" class="field-error"></span>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="ExpiryDate" class="field-label">Expiry date<span class="req">*</span></label>
+                        <input asp-for="ExpiryDate" type="date" class="form-control form-control-custom" />
+                        <span asp-validation-for="ExpiryDate" class="field-error"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Listing -->
+            <h2 class="section-title">Listing</h2>
+            <div class="section-body">
+                <div class="row g-3">
+
+                    <div class="col-12 col-md-6">
+                        <label asp-for="AskingPrice" class="field-label">Asking price<span class="req">*</span></label>
+                        <div class="input-group">
+                            <input asp-for="AskingPrice" type="number" min="0" step="0.01"
+                                   class="form-control form-control-custom" placeholder="0.00" />
+                            <span class="input-group-text">EGP</span>
+                        </div>
+                        <span asp-validation-for="AskingPrice" class="field-error"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Document -->
+            <h2 class="section-title">License document</h2>
+            <div class="section-body">
+
+                @if (!string.IsNullOrWhiteSpace(Model.CurrentLicenseDocument))
+                {
+                    <div class="current-doc">
+                        <div>
+                            <strong>Current document</strong>
+                            <span>This stays on the license unless you upload a replacement.</span>
+                        </div>
+                        <a href="@Model.CurrentLicenseDocument" target="_blank" rel="noopener noreferrer">Open in a new tab</a>
+                    </div>
+                }
+
+                <label asp-for="NewLicenseDocument" class="field-label">Replace document (optional)</label>
+                <input asp-for="NewLicenseDocument"
+                       type="file"
+                       class="form-control form-control-custom"
+                       accept=".pdf,application/pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+                <p class="help-text">PDF, JPG, PNG or WebP. Maximum size 5 MB.</p>
+                <span id="fileError" class="field-error d-none" role="alert"></span>
+                <span asp-validation-for="NewLicenseDocument" class="field-error"></span>
+            </div>
+
+            <div class="actions">
+                <a  asp-controller="UserLicense" 
+                    asp-action="Details" 
+                    asp-route-licenseId="@Model.Id" 
+                    class="btn btn-outline-medical">
+                        Cancel
+                </a>
+                <button type="submit" class="btn btn-medical">Save changes</button>
+            </div>
+
+        </div>
+    </form>
+
+</div>
+
+@section Scripts {
+
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const fileInput = document.querySelector('input[type="file"]');
+            const fileError = document.getElementById("fileError");
+
+            if (!fileInput) return;
+
+            function showError(message) {
+                fileError.textContent = message;
+                fileError.classList.remove("d-none");
+                fileInput.value = "";
+            }
+
+            fileInput.addEventListener("change", function () {
+
+                fileError.classList.add("d-none");
+
+                const file = this.files[0];
+
+                if (!file) return;
+
+                const maxSize = 5 * 1024 * 1024;
+
+                if (file.size > maxSize) {
+                    showError("The selected file is larger than 5 MB.");
+                    return;
+                }
+
+                const allowedTypes = [
+                    "application/pdf",
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp"
+                ];
+
+                if (!allowedTypes.includes(file.type)) {
+                    showError("Please select a PDF, JPG, PNG or WebP file.");
+                }
+            });
+        });
+    </script>
+}

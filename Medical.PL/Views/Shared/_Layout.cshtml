@@ -1,0 +1,410 @@
+@{
+    var layoutMode = ViewData["LayoutMode"]?.ToString();
+    var isOnboarding = layoutMode == "Onboarding";
+    var isFullPage = layoutMode == "FullPage";
+    var isAuth = layoutMode == "Auth";
+
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+
+    string Active(bool isActive) => isActive ? "active" : "";
+    string Current(bool isActive) => isActive ? "page" : null!;
+
+    var isAdmin = User.IsInRole("Admin");
+    var isSignedIn = User.Identity?.IsAuthenticated ?? false;
+
+    var inAccountArea = controller == "UserProfile"
+        || (controller == "Account" && action == "ChangePassword");
+}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>@ViewData["Title"] - Medical Portal</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Palette is shared with the home page. Variable names are kept
+           so existing pages that use them keep working. */
+        :root {
+            --medical-primary: #1d5c63;
+            --medical-primary-hover: #164a50;
+            --medical-dark: #1c2733;
+            --medical-bg: #f3f3ef;          /* page background (soft, not pure white) */
+            --medical-card: #fafaf8;        /* raised surfaces */
+            --medical-surface: #e8e8e2;     /* tinted areas */
+            --medical-border: #d4d6cf;
+            --medical-text: #1c2733;
+            --medical-muted: #4f5b66;
+
+            /* Navbar: same soft paper tone as the page, separated by a thin line */
+            --medical-deep: #17454b;        /* brand text, matches the home closing band */
+            --medical-nav: var(--medical-bg);
+            --medical-nav-line: var(--medical-border);
+            --medical-nav-text: var(--medical-muted);   /* inactive links (6.3:1) */
+
+            --bs-body-font-family: 'Source Sans 3', system-ui, sans-serif;
+            --bs-body-color: var(--medical-text);
+            --bs-link-color: var(--medical-primary);
+            --bs-link-hover-color: var(--medical-primary-hover);
+        }
+
+        html { min-height: 100%; }
+
+        body {
+            font-family: 'Source Sans 3', system-ui, sans-serif;
+            font-size: 1rem;
+            background-color: var(--medical-bg);
+            color: var(--medical-text);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        a:focus-visible, button:focus-visible, .btn:focus-visible, .form-control:focus-visible {
+            outline: 2px solid var(--medical-primary);
+            outline-offset: 2px;
+        }
+
+        .skip-link {
+            position: absolute; left: -999px; top: 0; z-index: 2000;
+            padding: .5rem 1rem; background: var(--medical-dark); color: var(--medical-card);
+        }
+        .skip-link:focus { left: 0; }
+
+        /* ---------- Navbar (solid soft paper) ---------- */
+
+        .navbar-custom {
+            background: var(--medical-nav);
+            border-bottom: 1px solid var(--medical-nav-line);
+            padding: 0;
+        }
+
+        .navbar-custom .container { min-height: 60px; }
+
+        .brand-logo {
+            font-weight: 700;
+            font-size: 1.15rem;
+            letter-spacing: -.01em;
+            color: var(--medical-deep);
+            text-decoration: none;
+        }
+        .brand-logo:hover, .brand-logo:focus { color: var(--medical-deep); }
+
+        .navbar-custom .nav-link {
+            padding: 1.1rem .9rem;
+            color: var(--medical-nav-text);
+            font-weight: 500;
+        }
+        .navbar-custom .nav-link:hover,
+        .navbar-custom .nav-link:focus,
+        .navbar-custom .nav-link.active,
+        .navbar-custom .nav-link.show { color: var(--medical-dark); }
+
+        .navbar-custom .nav-link.active { font-weight: 600; }
+
+        @@media (min-width: 992px) {
+            .navbar-custom .nav-link.active {
+                box-shadow: inset 0 -3px 0 var(--medical-primary);
+            }
+        }
+
+        @@media (max-width: 991.98px) {
+            .navbar-custom .nav-link { padding: .65rem 0; }
+            .navbar-custom .nav-link.active { color: var(--medical-primary); }
+            .navbar-collapse {
+                padding-bottom: 1rem;
+                border-top: 1px solid var(--medical-nav-line);
+            }
+        }
+
+        .navbar-custom .navbar-toggler {
+            border: 1px solid var(--medical-nav-line);
+            border-radius: 4px;
+            box-shadow: none;
+        }
+
+        /* ---------- Buttons ---------- */
+
+        .btn-medical {
+            background-color: var(--medical-primary);
+            color: var(--medical-card);
+            border: 1px solid var(--medical-primary);
+            border-radius: 4px;
+            font-weight: 600;
+            padding: .5rem 1.1rem;
+        }
+        .btn-medical:hover, .btn-medical:focus-visible {
+            background-color: var(--medical-primary-hover);
+            border-color: var(--medical-primary-hover);
+            color: var(--medical-card);
+        }
+
+        .btn-outline-medical {
+            background: transparent;
+            color: var(--medical-dark);
+            border: 1px solid var(--medical-dark);
+            border-radius: 4px;
+            font-weight: 600;
+            padding: .5rem 1.1rem;
+        }
+        .btn-outline-medical:hover { background: var(--medical-dark); color: var(--medical-card); }
+
+        /* ---------- Cards, forms, dropdowns ---------- */
+
+        .card-custom {
+            border: 1px solid var(--medical-border);
+            border-radius: 4px;
+            box-shadow: none;
+            background: var(--medical-card);
+        }
+
+        .form-control-custom {
+            border-radius: 4px;
+            padding: .6rem .8rem;
+            border: 1px solid #b4bbb9;
+            background-color: var(--medical-card);
+        }
+        .form-control-custom:focus {
+            border-color: var(--medical-primary);
+            box-shadow: 0 0 0 3px rgba(29, 92, 99, .18);
+        }
+
+        .dropdown-menu-custom {
+            background: var(--medical-card);
+            border: 1px solid var(--medical-border);
+            border-radius: 4px;
+            box-shadow: 0 6px 18px rgba(28, 39, 51, .12);
+            min-width: 14rem;
+            padding: .35rem;
+        }
+        .dropdown-menu-custom .dropdown-item {
+            border-radius: 3px;
+            padding: .5rem .75rem;
+            font-size: .95rem;
+            color: var(--medical-text);
+        }
+        .dropdown-menu-custom .dropdown-item:hover,
+        .dropdown-menu-custom .dropdown-item:focus { background: var(--medical-surface); color: var(--medical-text); }
+        .dropdown-menu-custom .dropdown-item.active {
+            background: var(--medical-surface);
+            color: var(--medical-dark);
+            font-weight: 600;
+        }
+        .dropdown-menu-custom .dropdown-header {
+            padding: .5rem .75rem;
+            font-size: .85rem;
+            color: var(--medical-muted);
+        }
+
+        /* ---------- Footer ---------- */
+
+        .footer-custom {
+            margin-top: auto;
+            background: var(--medical-bg);
+            border-top: 1px solid var(--medical-border);
+            color: var(--medical-muted);
+            font-size: .9rem;
+        }
+
+        /* ---------- Onboarding (ViewData["LayoutMode"] = "Onboarding") ---------- */
+
+        body.layout-onboarding { background: var(--medical-bg); display: block; }
+        body.layout-onboarding main { width: 100%; max-width: none; padding: 0; margin: 0; }
+        body.layout-onboarding .site-footer { display: none; }
+
+        /* ---------- Auth pages (ViewData["LayoutMode"] = "Auth") ----------
+           Sign in / register: navbar stays, the card is centred in the space
+           that is left, and the page never needs to scroll on a normal screen. */
+        body.layout-auth main.auth-main {
+            flex: 1 0 auto;
+            display: flex;
+            align-items: center;
+            padding-block: 1rem;
+        }
+    </style>
+</head>
+
+<body class="@(isOnboarding ? "layout-onboarding" : isAuth ? "layout-auth" : "")">
+
+    <partial name="_StatusModal" />
+
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    @if (!isOnboarding)
+    {
+        <header class="sticky-top">
+            <nav class="navbar navbar-expand-lg navbar-custom" aria-label="Main">
+                <div class="container">
+
+                    <a class="navbar-brand brand-logo" asp-controller="Home" asp-action="Index">
+                        Medical Portal
+                    </a>
+
+                    <button class="navbar-toggler" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#navbarMain"
+                            aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarMain">
+
+                        <ul class="navbar-nav me-auto ms-lg-3">
+
+                            <li class="nav-item">
+                                <a class="nav-link @Active(controller == "License")"
+                                   aria-current="@Current(controller == "License")"
+                                   asp-controller="License" asp-action="List">
+                                    Licenses
+                                </a>
+                            </li>
+
+                            @if (isAdmin)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link @Active(controller == "AdminDashboard" && action == "ListLicenses")"
+                                       aria-current="@Current(controller == "AdminDashboard" && action == "ListLicenses")"
+                                       asp-controller="AdminDashboard" asp-action="ListLicenses">
+                                        Review licenses
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link @Active(controller == "AdminDashboard" && action == "ListUsers")"
+                                       aria-current="@Current(controller == "AdminDashboard" && action == "ListUsers")"
+                                       asp-controller="AdminDashboard" asp-action="ListUsers">
+                                        Users
+                                    </a>
+                                </li>
+                            }
+
+                        </ul>
+
+                        <ul class="navbar-nav align-items-lg-center gap-lg-2">
+
+                            @if (isSignedIn)
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle @Active(inAccountArea)" href="#" role="button"
+                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                        @User.Identity!.Name
+                                    </a>
+
+                                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-custom mt-0">
+
+                                        <li class="dropdown-header">Signed in as @User.Identity.Name</li>
+
+                                        <li>
+                                            <a class="dropdown-item @Active(controller == "UserProfile" && action == "Details")"
+                                               asp-controller="UserProfile" asp-action="Details">
+                                                Profile
+                                            </a>
+                                        </li>
+
+                                        <li><hr class="dropdown-divider" /></li>
+
+                                        <li>
+                                            <a class="dropdown-item @Active(controller == "UserLicense" && action == "List")"
+                                               asp-controller="UserLicense" asp-action="List">
+                                                My licenses
+                                            </a>
+                                        </li>
+
+                                        <li>
+                                            <a class="dropdown-item @Active(controller == "UserRequest" && action == "ListSentRequests")"
+                                               asp-controller="UserRequest" asp-action="ListSentRequests">
+                                                Sent transfer requests
+                                            </a>
+                                        </li>
+
+                                        <li>
+                                            <a class="dropdown-item @Active(controller == "UserRequest" && action == "ListReceivedRequests")"
+                                               asp-controller="UserRequest" asp-action="ListReceivedRequests">
+                                                Received transfer requests
+                                            </a>
+                                        </li>
+
+                                        <li><hr class="dropdown-divider" /></li>
+
+                                        <li>
+                                            <form asp-controller="Account" asp-action="Logout" method="post">
+                                                <button type="submit" class="dropdown-item">Sign out</button>
+                                            </form>
+                                        </li>
+
+                                    </ul>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Account" asp-action="Login">Sign in</a>
+                                </li>
+                                <li class="nav-item py-2 py-lg-0">
+                                    <a class="btn btn-medical" asp-controller="Account" asp-action="Register">
+                                        Create an account
+                                    </a>
+                                </li>
+                            }
+
+                        </ul>
+
+                    </div>
+                </div>
+            </nav>
+        </header>
+    }
+
+    @if (isOnboarding)
+    {
+        <main id="main-content" role="main">
+            @RenderBody()
+        </main>
+    }
+    else if (isAuth)
+    {
+        <main id="main-content" role="main" class="container auth-main">
+            @RenderBody()
+        </main>
+    }
+    else if (isFullPage)
+    {
+        <main id="main-content" role="main" class="p-0 m-0">
+            @RenderBody()
+        </main>
+    }
+    else
+    {
+        <main id="main-content" role="main" class="container py-5">
+            @RenderBody()
+        </main>
+    }
+
+    @if (!isOnboarding && !isAuth)
+    {
+        <footer class="footer-custom site-footer py-4">
+            <div class="container">
+                &copy; 2026 Medical Portal. All rights reserved.
+            </div>
+        </footer>
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation-unobtrusive@4.0.0/dist/jquery.validate.unobtrusive.min.js"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+</body>
+
+</html>

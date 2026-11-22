@@ -1,0 +1,111 @@
+@using Medical.DAL.Constants
+@model Medical.BLL.ViewModels.License.LicenseDetailsViewModel
+
+@{
+    ViewData["Title"] = "License Details";
+
+    bool isAdmin = ViewBag.IsAdmin == true;
+    bool isPending = Model.LicenseStatus == LicenseStatus.Pending;
+
+    string listController = isAdmin ? "AdminDashboard" : "UserLicense";
+    string listAction = isAdmin ? "ListLicenses" : "List";
+    string listLabel = isAdmin ? "All licenses" : "My licenses";
+
+    string statusText = Model.LicenseStatus?.ToString() ?? "Unknown";
+    string statusClass = Model.LicenseStatus switch
+    {
+        LicenseStatus.Approved => "ok",
+        LicenseStatus.Rejected => "bad",
+        LicenseStatus.Pending => "warn",
+        _ => ""
+    };
+}
+
+<div class="ld">
+
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <a asp-controller="@listController" asp-action="@listAction">&larr; @listLabel</a>
+        <span>/</span>
+        Details
+    </nav>
+
+    <div class="row g-4">
+
+        <!-- Sidebar first on phones so the actions are within reach, last on desktop -->
+        <div class="col-12 col-lg-4 order-1 order-lg-2">
+            <div class="panel side">
+                <div class="section">
+                    <h2>License management</h2>
+
+                    <div class="side-row">
+                        <span>Status</span>
+                        <span class="tag @statusClass">@statusText</span>
+                    </div>
+                    <div class="side-row">
+                        <span>Owner</span>
+                        <strong>@Model.OwnerUserName</strong>
+                    </div>
+
+                    <div class="stack">
+
+                        @if (!isAdmin)
+                        {
+                            <a asp-controller="UserLicense"
+                               asp-action="Edit"
+                               asp-route-licenseId="@Model.Id"
+                               class="btn btn-medical">
+                                Edit license
+                            </a>
+
+                            <form asp-controller="UserLicense"
+                                  asp-action="Delete"
+                                  asp-route-licenseId="@Model.Id"
+                                  method="post"
+                                  onsubmit="return confirm('Are you sure you want to delete this license?');">
+                                <button type="submit" class="btn-reject">
+                                    Delete license
+                                </button>
+                            </form>
+                        }
+                        else if (isPending)
+                        {
+                            <form asp-controller="AdminDashboard"
+                                  asp-action="ApproveLicense"
+                                  asp-route-licenseId="@Model.Id"
+                                  method="post"
+                                  onsubmit="return confirm('Are you sure you want to approve this license?');">
+                                <button type="submit" class="btn btn-medical">Approve license</button>
+                            </form>
+
+                            <form asp-controller="AdminDashboard"
+                                  asp-action="RejectLicense"
+                                  asp-route-licenseId="@Model.Id"
+                                  method="post"
+                                  onsubmit="return confirm('Are you sure you want to reject this license?');">
+                                <button type="submit" class="btn-reject">Reject license</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <p class="help mt-0">This license is marked as <strong>@statusText</strong>.</p>
+                        }
+
+                    </div>
+
+                    <a 
+                        asp-controller="License" 
+                        asp-action="Details" 
+                        asp-route-licenseId="@Model.Id" 
+                        class="quiet-link">
+                        View public listing
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-8 order-2 order-lg-1">
+            <partial name="_LicenseInfo" model="Model" />
+        </div>
+
+    </div>
+</div>

@@ -1,0 +1,221 @@
+﻿@model Medical.BLL.ViewModels.UserProfile.ProfileDetailsViewModel
+
+@{
+    ViewData["Title"] = "My Profile";
+
+    var initials = string.Join("",
+        (Model.FullName ?? "")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(part => char.ToUpper(part[0])));
+
+    if (string.IsNullOrEmpty(initials))
+    {
+        initials = "U";
+    }
+
+    bool hasPassword = ViewBag.HasPassword == true;
+
+    string Show(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+}
+
+<style>
+    .profile {
+        --p-ink: var(--medical-dark, #1c2733);
+        --p-muted: var(--medical-muted, #5b6670);
+        --p-line: var(--medical-border, #d9dee3);
+        --p-surface: var(--medical-surface, #f4f6f7);
+        --p-accent: var(--medical-primary, #1d5c63);
+        color: var(--p-ink);
+    }
+
+    .profile h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .25rem; }
+    .profile .lead-text { color: var(--p-muted); margin: 0; }
+
+    .profile .panel { border: 1px solid var(--p-line); border-radius: 4px; background: var(--medical-card, #fafaf8); }
+
+    /* Identity card */
+    .profile .identity { padding: 1.75rem 1.5rem; text-align: center; }
+    .profile .avatar {
+        width: 96px; height: 96px; margin: 0 auto 1rem;
+        display: grid; place-items: center;
+        border: 1px solid var(--p-line); border-radius: 4px;
+        background: var(--p-surface); color: var(--p-accent);
+        font-size: 2rem; font-weight: 600; letter-spacing: .02em;
+        user-select: none;
+    }
+    .profile .identity h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 .15rem; }
+    .profile .identity .handle { color: var(--p-muted); font-size: .95rem; }
+    .profile .identity-meta { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid var(--p-line);
+                              text-align: left; font-size: .92rem; }
+    .profile .identity-meta div { display: flex; justify-content: space-between; gap: 1rem; padding: .25rem 0; }
+    .profile .identity-meta span:first-child { color: var(--p-muted); }
+
+    /* Detail sections */
+    .profile .section-title {
+        margin: 0; padding: .85rem 1.25rem;
+        font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--p-muted); background: var(--p-surface);
+        border-bottom: 1px solid var(--p-line);
+    }
+    .profile .panel > .section-title:not(:first-child) { border-top: 1px solid var(--p-line); }
+    .profile dl { margin: 0; }
+    .profile .field {
+        display: grid; grid-template-columns: 12rem 1fr; gap: 1rem;
+        padding: .9rem 1.25rem; border-bottom: 1px solid var(--p-line);
+    }
+    .profile .field:last-child { border-bottom: 0; }
+    .profile dt { color: var(--p-muted); font-weight: 400; }
+    .profile dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+    .profile .empty { color: var(--p-muted); font-weight: 400; }
+
+    .profile .status {
+        display: inline-block; margin-left: .6rem; padding: .05rem .5rem;
+        border: 1px solid var(--p-line); border-radius: 3px;
+        font-size: .78rem; font-weight: 600; vertical-align: 1px;
+    }
+    .profile .status.ok { color: #1f6b3a; border-color: #b9dcc5; background: #f1f8f3; }
+    .profile .status.pending { color: var(--p-muted); background: var(--p-surface); }
+
+    .profile .inline-link {
+        margin-left: .9rem; color: var(--p-accent); font-weight: 600;
+        text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
+    }
+    .profile .inline-link:hover { color: var(--medical-primary-hover, #164a50); }
+    .profile .sub-note { display: block; margin-top: .25rem; color: var(--p-muted); font-weight: 400; font-size: .92rem; }
+
+    @@media (max-width: 575.98px) {
+        .profile .field { grid-template-columns: 1fr; gap: .15rem; }
+    }
+</style>
+
+<div class="profile">
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+        <div>
+            <h1>My profile</h1>
+            <p class="lead-text">Your personal and account information.</p>
+        </div>
+
+        <a asp-controller="UserProfile" asp-action="Edit" class="btn btn-medical">
+            Edit profile
+        </a>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Identity -->
+        <div class="col-lg-4">
+            <div class="panel identity">
+
+                <!-- Placeholder avatar. Replace this div with an <img> when profile photos are supported. -->
+                <div class="avatar" aria-hidden="true">@initials</div>
+
+                <h2>@Model.FullName</h2>
+                <div class="handle">@($"@{Model.UserName}")</div>
+
+                <div class="identity-meta">
+                    <div>
+                        <span>Member since</span>
+                        <span>@Model.MemberSince.ToString("MMMM yyyy")</span>
+                    </div>
+                    <div>
+                        <span>Email</span>
+                        <span>@(Model.IsEmailConfirmed ? "Verified" : "Not verified")</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-lg-8">
+            <div class="panel">
+
+                <h2 class="section-title">Personal information</h2>
+                <dl>
+                    <div class="field">
+                        <dt>Full name</dt>
+                        <dd>@Model.FullName</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Username</dt>
+                        <dd>@($"@{Model.UserName}")</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Date of birth</dt>
+                        <dd>@Model.BirthDate.ToString("dd MMMM yyyy")</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Nationality</dt>
+                        <dd class="@(string.IsNullOrWhiteSpace(Model.Nationality) ? "empty" : "")">@Show(Model.Nationality!)</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Address</dt>
+                        <dd class="@(string.IsNullOrWhiteSpace(Model.Address) ? "empty" : "")">@Show(Model.Address!)</dd>
+                    </div>
+                </dl>
+
+                <h2 class="section-title">Contact and verification</h2>
+                <dl>
+                    <div class="field">
+                        <dt>Email</dt>
+                        <dd>
+                            @Model.Email
+                            @if (Model.IsEmailConfirmed)
+                            {
+                                <span class="status ok">Verified</span>
+                            }
+                            else
+                            {
+                                <span class="status pending">Not verified</span>
+                            }
+                        </dd>
+                    </div>
+                    <div class="field">
+                        <dt>Phone number</dt>
+                        <dd>
+                            <span class="@(string.IsNullOrWhiteSpace(Model.PhoneNumber) ? "empty" : "")">@Show(Model.PhoneNumber!)</span>
+                            @if (!string.IsNullOrWhiteSpace(Model.PhoneNumber))
+                            {
+                                if (Model.IsPhoneConfirmed)
+                                {
+                                    <span class="status ok">Verified</span>
+                                }
+                                else
+                                {
+                                    <span class="status pending">Not verified</span>
+                                }
+                            }
+                        </dd>
+                    </div>
+                </dl>
+
+                <h2 class="section-title">Account security</h2>
+                <dl>
+                    <div class="field">
+                        <dt>Password</dt>
+                        <dd>
+                            @if (hasPassword)
+                            {
+                                <span>Local password</span>
+                                <span class="status ok">Set</span>
+                                <a asp-controller="Account" asp-action="ChangePassword" class="inline-link">Change password</a>
+                            }
+                            else
+                            {
+                                <span class="empty">No local password</span>
+                                <span class="status pending">Not set</span>
+                                <a asp-controller="Account" asp-action="AddPassword" class="inline-link">Set password</a>
+                                <span class="sub-note">Set one to sign in with your email as well.</span>
+                            }
+                        </dd>
+                    </div>
+                </dl>
+
+
+            </div>
+        </div>
+
+    </div>
+</div>

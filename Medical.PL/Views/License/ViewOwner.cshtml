@@ -1,0 +1,210 @@
+@model Medical.BLL.ViewModels.License.LicenseOwnerViewModel
+
+@{
+    ViewData["Title"] = "User Details";
+
+    var initials = string.Join("",
+        (Model.FullName ?? "")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(part => char.ToUpper(part[0])));
+
+    if (string.IsNullOrEmpty(initials))
+    {
+        initials = "U";
+    }
+
+    bool hasName = !string.IsNullOrWhiteSpace(Model.FullName);
+
+    var licenseId = Context.Request.RouteValues["licenseId"]?.ToString();
+
+    string Show(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+}
+
+<style>
+    /* Self-contained: same look as the profile page, sized up for admin work */
+    .admin-user {
+        --u-ink: var(--medical-dark, #1c2733);
+        --u-muted: var(--medical-muted, #4f5b66);
+        --u-line: var(--medical-border, #d4d6cf);
+        --u-surface: var(--medical-surface, #e8e8e2);
+        --u-accent: var(--medical-primary, #1d5c63);
+        --u-ok: #1f6b3a;
+        --u-warn: #96501f;
+        color: var(--u-ink);
+        font-size: 1.0625rem;
+    }
+
+    .admin-user .crumbs { margin-bottom: 1.25rem; color: var(--u-muted); font-size: 1rem; }
+    .admin-user .crumbs a { color: var(--u-accent); font-weight: 600; text-underline-offset: 3px; }
+    .admin-user .crumbs span { margin: 0 .4rem; }
+
+    .admin-user h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .3rem; }
+    .admin-user .lead-text { color: var(--u-muted); margin: 0; font-size: 1.05rem; }
+
+    .admin-user .panel { border: 1px solid var(--u-line); border-radius: 4px; background: var(--medical-card, #fafaf8); }
+
+    /* Identity card */
+    .admin-user .identity { padding: 1.75rem 1.5rem; text-align: center; }
+    .admin-user .avatar {
+        width: 96px; height: 96px; margin: 0 auto 1rem;
+        display: grid; place-items: center;
+        border: 1px solid var(--u-line); border-radius: 4px;
+        background: var(--u-surface); color: var(--u-accent);
+        font-size: 2rem; font-weight: 600; letter-spacing: .02em;
+        user-select: none;
+    }
+    .admin-user .identity h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 .15rem; overflow-wrap: anywhere; }
+    .admin-user .identity h2.unset { font-weight: 400; color: var(--u-muted); }
+    .admin-user .identity .handle { color: var(--u-muted); overflow-wrap: anywhere; }
+    .admin-user .identity-meta { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid var(--u-line); text-align: left; }
+    .admin-user .identity-meta div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; }
+    .admin-user .identity-meta span:first-child { color: var(--u-muted); }
+    .admin-user .identity-meta .ok { color: var(--u-ok); font-weight: 600; }
+    .admin-user .identity-meta .warn { color: var(--u-warn); font-weight: 600; }
+
+    /* Section bars and rows */
+    .admin-user .section-title {
+        margin: 0; padding: .85rem 1.25rem;
+        font-size: .875rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--u-muted); background: var(--u-surface);
+        border-bottom: 1px solid var(--u-line);
+    }
+    .admin-user .panel > .section-title:not(:first-child) { border-top: 1px solid var(--u-line); }
+    .admin-user dl { margin: 0; }
+    .admin-user .field {
+        display: grid; grid-template-columns: 14rem 1fr; gap: 1rem;
+        padding: 1rem 1.25rem; border-bottom: 1px solid var(--u-line);
+    }
+    .admin-user .field:last-child { border-bottom: 0; }
+    .admin-user dt { color: var(--u-muted); font-weight: 400; }
+    .admin-user dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+    .admin-user .empty { color: var(--u-muted); font-weight: 400; }
+    .admin-user .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1rem; }
+
+    .admin-user .status {
+        display: inline-block; margin-left: .6rem; padding: .05rem .6rem;
+        border: 1px solid var(--u-line); border-radius: 3px;
+        font-size: .95rem; font-weight: 600; vertical-align: 1px;
+    }
+    .admin-user .status.ok { color: var(--u-ok); border-color: #b9dcc5; background: #f1f8f3; }
+    .admin-user .status.warn { color: var(--u-warn); border-color: #e6c9b3; background: #fbf3ec; }
+    .admin-user .status.pending { color: var(--u-muted); background: var(--u-surface); }
+
+    @@media (max-width: 575.98px) {
+        .admin-user h1 { font-size: 1.6rem; }
+        .admin-user .field { grid-template-columns: 1fr; gap: .15rem; }
+    }
+</style>
+
+<div class="admin-user">
+
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <a asp-controller="License"
+        asp-action="Details"
+        asp-route-licenseId="@licenseId">
+            &larr; Get back to license
+        </a>
+
+        <span>/</span>
+        Owner profile
+    </nav>
+
+    <div class="mb-4">
+        <h1>Owner profile</h1>
+        <p class="lead-text">
+            Account and profile information for the license owner.
+        </p>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Identity -->
+        <div class="col-lg-4">
+            <div class="panel identity">
+
+                <div class="avatar" aria-hidden="true">@initials</div>
+
+                @if (hasName)
+                {
+                    <h2>@Model.FullName</h2>
+                }
+                else
+                {
+                    <h2 class="unset">Name not set</h2>
+                }
+                <div class="handle">@($"@{Model.UserName}")</div>
+
+                <div class="identity-meta">
+                    <div>
+                        <span>Member since</span>
+                        <span>@Model.MemberSince.ToString("MMMM yyyy")</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="col-lg-8">
+            <div class="panel">
+
+                <h2 class="section-title">Personal information</h2>
+                <dl>
+                    <div class="field">
+                        <dt>Full name</dt>
+                        <dd class="@(hasName ? "" : "empty")">@(hasName ? Model.FullName : "Not provided")</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Username</dt>
+                        <dd>@($"@{Model.UserName}")</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Date of birth</dt>
+                        <dd>@Model.BirthDate.ToString("dd MMMM yyyy")</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Nationality</dt>
+                        <dd class="@(string.IsNullOrWhiteSpace(Model.Nationality) ? "empty" : "")">@Show(Model.Nationality!)</dd>
+                    </div>
+                    <div class="field">
+                        <dt>Address</dt>
+                        <dd class="@(string.IsNullOrWhiteSpace(Model.Address) ? "empty" : "")">@Show(Model.Address!)</dd>
+                    </div>
+                </dl>
+
+                <h2 class="section-title">Contact and verification</h2>
+                <dl>
+                    <div class="field">
+                        <dt>Email</dt>
+                        <dd>
+                            @if (!string.IsNullOrWhiteSpace(Model.Email))
+                            {
+                                @Model.Email
+                            }
+                            else
+                            {
+                                <span class="empty">Not provided</span>
+                            }
+                        </dd>
+                    </div>
+                    <div class="field">
+                        <dt>Phone number</dt>
+                        <dd>
+                            @if (!string.IsNullOrWhiteSpace(Model.PhoneNumber))
+                            {
+                                @Model.PhoneNumber
+                            }
+                            else
+                            {
+                                <span class="empty">Not provided</span>
+                            }
+                        </dd>
+                    </div>
+                </dl>
+
+            </div>
+        </div>
+
+    </div>
+</div>

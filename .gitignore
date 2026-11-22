@@ -1,0 +1,77 @@
+# ==================================================
+# Private SSL Certificates
+#==================================================
+
+Infrastructure/NginxKeepalived/certs/*.key
+Infrastructure/NginxKeepalived/certs/*.pfx
+
+# ==================================================
+# User Uploaded Files
+# ==================================================
+
+Medical.PL/wwwroot/uploads/*
+!Medical.PL/wwwroot/uploads/.gitkeep
+
+
+# ==================================================
+# .NET Build Artifacts
+# ==================================================
+
+**/bin/
+**/obj/
+
+# ==================================================
+# Visual Studio / IDE
+# ==================================================
+
+.vs/
+.idea/
+.vscode/
+**/*.user
+**/*.suo
+
+# ==================================================
+# Temporary Files
+# ==================================================
+
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# ==================================================
+# Runtime Database Data
+# ==================================================
+
+Infrastructure/RedisCluster/data/*
+!Infrastructure/RedisCluster/data/.gitkeep
+
+Infrastructure/SqlServerHaCluster/data/*
+!Infrastructure/SqlServerHaCluster/data/.gitkeep
+
+# ==================================================
+# OS Files
+# ==================================================
+
+.DS_Store
+Thumbs.db
+# ==================================================
+# Environment Variables and Secrets
+# ==================================================
+
+**/.env
+**/.env.*
+**/*.env
+
+!**/.env.example
+!**/.env.*.example
+
+# ==================================================
+# Private Certificates and Keys
+# ==================================================
+
+**/*.key
+**/*.pfx
+**/*.pem

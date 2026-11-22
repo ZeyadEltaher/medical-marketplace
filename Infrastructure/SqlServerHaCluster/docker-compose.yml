@@ -1,0 +1,93 @@
+services:
+  sqlserver-1:
+    image: sqlserver-ha:2025
+    container_name: sqlserver-1
+    hostname: sqlserver-1
+
+    privileged: true
+    cgroup: host
+    init: false
+
+    restart: no
+    stop_signal: SIGRTMIN+3
+
+    tmpfs:
+      - /run
+      - /run/lock
+
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./data/sqlserver-1:/var/opt/mssql
+      - ./secrets/sqlserver.env:/etc/sqlserver-secrets/sqlserver.env:ro
+
+    ports:
+      - "1433:1433"
+
+    networks:
+      sql-ha:
+        ipv4_address: 172.32.0.10
+
+  sqlserver-2:
+    image: sqlserver-ha:2025
+    container_name: sqlserver-2
+    hostname: sqlserver-2
+
+    privileged: true
+    cgroup: host
+    init: false
+
+    restart: no
+    stop_signal: SIGRTMIN+3
+
+    tmpfs:
+      - /run
+      - /run/lock
+
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./data/sqlserver-2:/var/opt/mssql
+      - ./secrets/sqlserver.env:/etc/sqlserver-secrets/sqlserver.env:ro
+
+    ports:
+      - "1434:1433"
+
+    networks:
+      sql-ha:
+        ipv4_address: 172.32.0.11
+
+  sqlserver-3:
+    image: sqlserver-ha:2025
+    container_name: sqlserver-3
+    hostname: sqlserver-3
+
+    privileged: true
+    cgroup: host
+    init: false
+
+    restart: no
+    stop_signal: SIGRTMIN+3
+
+    tmpfs:
+      - /run
+      - /run/lock
+
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./data/sqlserver-3:/var/opt/mssql
+      - ./secrets/sqlserver.env:/etc/sqlserver-secrets/sqlserver.env:ro
+
+    ports:
+      - "1435:1433"
+
+    networks:
+      sql-ha:
+        ipv4_address: 172.32.0.12
+
+networks:
+  sql-ha:
+    name: sqlserver-ha
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/24
+          gateway: 172.32.0.1

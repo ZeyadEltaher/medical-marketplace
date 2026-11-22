@@ -1,0 +1,324 @@
+@*
+    Centered status dialog (success / error) shown above the page, with the page dimmed behind it.
+    Put this file in Views/Shared and render it once in _Layout.cshtml, before the script tags:
+
+        <partial name="_StatusModal" />
+
+    It does two jobs:
+      1. Shows TempData["SuccessMessage"] / TempData["ErrorMessage"] as a dialog when a page loads,
+         so the inline alert boxes are no longer needed.
+      2. Lets a form opt in to "submit, wait for the result, show the dialog, then redirect":
+
+         <form ... data-status-submit
+                   data-success-message="Shown if the server sets no message"
+                   data-busy-text="Submitting...">
+
+    Scripts can also call:  showStatusDialog({ type: "success" | "error", title, message, redirectUrl, autoClose })
+*@
+
+@{
+    var statusSuccess = TempData["SuccessMessage"] as string;
+    var statusError = TempData["ErrorMessage"] as string;
+
+    // An error wins if both are set
+    string? statusType = !string.IsNullOrWhiteSpace(statusError) ? "error"
+        : !string.IsNullOrWhiteSpace(statusSuccess) ? "success" : null;
+
+    string? statusMessage = statusType == "error" ? statusError : statusSuccess;
+}
+
+@if (statusType != null)
+{
+    <div id="statusData" hidden data-type="@statusType" data-message="@statusMessage"></div>
+}
+
+<dialog id="statusDialog" class="status-dialog" aria-labelledby="statusDialogTitle" aria-describedby="statusDialogMessage">
+    <div class="status-box">
+        <span id="statusMark" class="status-mark" aria-hidden="true">&#10003;</span>
+        <h2 id="statusDialogTitle" class="status-title">Success</h2>
+        <p id="statusDialogMessage" class="status-message"></p>
+        <div id="statusTimer" class="status-timer" hidden aria-hidden="true"><span></span></div>
+        <button type="button" id="statusDialogClose" class="btn btn-medical status-button">OK</button>
+    </div>
+</dialog>
+
+<style>
+    .status-dialog {
+        width: calc(100% - 2rem);
+        max-width: 26rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--medical-text, #1c2733);
+        overflow: visible;
+    }
+
+    /* The page behind fades back */
+    .status-dialog::backdrop {
+        background: rgba(28, 39, 51, .55);
+        backdrop-filter: blur(2px);
+    }
+
+    .status-dialog[open] { animation: statusIn 160ms ease-out; }
+    @@keyframes statusIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .status-box {
+        position: relative;
+        overflow: hidden;
+        padding: 2rem 1.75rem 1.75rem;
+        text-align: center;
+        background: var(--medical-card, #fafaf8);
+        border: 1px solid var(--medical-border, #d4d6cf);
+        border-top: 3px solid var(--medical-primary, #1d5c63);
+        border-radius: 4px;
+        box-shadow: 0 18px 44px rgba(28, 39, 51, .28);
+    }
+    .status-box.is-error { border-top-color: #a63232; }
+
+    .status-mark {
+        display: grid; place-items: center;
+        width: 46px; height: 46px; margin: 0 auto 1rem;
+        border-radius: 4px; font-size: 1.4rem; font-weight: 700;
+        background: var(--medical-primary, #1d5c63); color: var(--medical-card, #fafaf8);
+    }
+    .status-box.is-error .status-mark { background: #a63232; }
+
+    .status-title { margin: 0 0 .4rem; font-size: 1.35rem; font-weight: 700; letter-spacing: -.01em; }
+    .status-message { margin: 0 0 1.4rem; color: var(--medical-muted, #4f5b66); font-size: 1.0625rem; line-height: 1.55; white-space: pre-line; }
+    .status-button { min-width: 9rem; padding: .55rem 1.5rem; font-size: 1.0625rem; }
+
+    /* Thin line that runs out while a success message is on screen */
+    .status-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--medical-surface, #e8e8e2); }
+    .status-timer span { display: block; height: 100%; width: 100%; background: var(--medical-primary, #1d5c63); transform-origin: left; }
+    .status-timer.run span { animation: statusTimer var(--auto, 3000ms) linear forwards; }
+    @@keyframes statusTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .status-dialog[open] { animation: none; }
+    }
+</style>
+
+<script>
+    (function () {
+
+        const dialog = document.getElementById("statusDialog");
+
+        if (!dialog) {
+            return;
+        }
+
+        const box = dialog.querySelector(".status-box");
+        const mark = document.getElementById("statusMark");
+        const title = document.getElementById("statusDialogTitle");
+        const message = document.getElementById("statusDialogMessage");
+        const timer = document.getElementById("statusTimer");
+        const closeButton = document.getElementById("statusDialogClose");
+
+        let timeoutId = null;
+        let pendingUrl = null;
+        let onCloseCallback = null;
+
+        /* Runs once whenever the dialog closes (button, Esc, click outside, or auto-close) */
+        function finish() {
+
+            clearTimeout(timeoutId);
+
+            const url = pendingUrl;
+            const callback = onCloseCallback;
+
+            pendingUrl = null;
+            onCloseCallback = null;
+
+            if (callback) {
+                callback();
+            }
+
+            if (url) {
+                window.location.assign(url);
+            }
+        }
+
+        dialog.addEventListener("close", finish);
+
+        closeButton.addEventListener("click", function () {
+            dialog.close();
+        });
+
+        dialog.addEventListener("click", function (event) {
+            if (event.target === dialog) {
+                dialog.close();
+            }
+        });
+
+        /* Public API */
+        window.showStatusDialog = function (options) {
+
+            const type = options.type === "error" ? "error" : "success";
+
+            box.classList.toggle("is-error", type === "error");
+            mark.textContent = type === "error" ? "\u2715" : "\u2713";
+            title.textContent = options.title || (type === "error" ? "Action could not be completed" : "Success");
+            message.textContent = options.message || "";
+
+            pendingUrl = options.redirectUrl || null;
+            onCloseCallback = options.onClose || null;
+
+            closeButton.textContent = pendingUrl ? "Continue" : "OK";
+
+            /* Success messages close by themselves; errors wait for the user */
+            const autoClose = options.autoClose !== undefined
+                ? options.autoClose
+                : (type === "success" ? 3000 : 0);
+
+            timer.hidden = !autoClose;
+            timer.classList.remove("run");
+
+            if (autoClose) {
+                timer.style.setProperty("--auto", autoClose + "ms");
+                void timer.offsetWidth;
+                timer.classList.add("run");
+            }
+
+            if (!dialog.open) {
+                dialog.showModal();
+            }
+
+            clearTimeout(timeoutId);
+
+            if (autoClose) {
+                timeoutId = setTimeout(function () {
+                    dialog.close();
+                }, autoClose);
+            }
+        };
+
+        /* Submit a form in the background, wait for the result, then show the dialog */
+        async function submitWithStatus(form) {
+
+            const submitButton = form.querySelector('[type="submit"]');
+            const originalText = submitButton ? submitButton.textContent : "";
+
+            function setBusy(isBusy) {
+
+                if (!submitButton) {
+                    return;
+                }
+
+                submitButton.disabled = isBusy;
+                submitButton.textContent = isBusy
+                    ? (form.dataset.busyText || "Submitting\u2026")
+                    : originalText;
+            }
+
+            setBusy(true);
+
+            try {
+
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    headers: { "X-Requested-With": "XMLHttpRequest" },
+                    credentials: "same-origin"
+                });
+
+                const contentType = response.headers.get("content-type") || "";
+
+                /* The server answered with JSON: { success, message, redirectUrl } */
+                if (contentType.includes("application/json")) {
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        window.showStatusDialog({
+                            type: "success",
+                            title: form.dataset.successTitle,
+                            message: result.message || form.dataset.successMessage,
+                            redirectUrl: result.redirectUrl
+                        });
+                    } else {
+                        window.showStatusDialog({ type: "error", message: result.message });
+                        setBusy(false);
+                    }
+
+                    return;
+                }
+
+                /* The usual redirect after a successful POST */
+                if (response.redirected) {
+
+                    const html = await response.text();
+                    const doc = new DOMParser().parseFromString(html, "text/html");
+                    const data = doc.getElementById("statusData");
+
+                    /* Sent to the sign-in page (session ended): just follow it */
+                    if (!data && /login/i.test(response.url)) {
+                        window.location.assign(response.url);
+                        return;
+                    }
+
+                    const type = data ? data.dataset.type : "success";
+
+                    window.showStatusDialog({
+                        type: type,
+                        title: type === "success" ? form.dataset.successTitle : undefined,
+                        message: data && data.dataset.message
+                            ? data.dataset.message
+                            : (form.dataset.successMessage || ""),
+                        redirectUrl: response.url
+                    });
+
+                    return;
+                }
+
+                /* The server sent the form back with validation errors: show it like a normal post would */
+                const html = await response.text();
+
+                document.open();
+                document.write(html);
+                document.close();
+            }
+            catch (error) {
+
+                window.showStatusDialog({
+                    type: "error",
+                    title: "Connection problem",
+                    message: "We could not reach the server. Please check your connection and try again."
+                });
+
+                setBusy(false);
+            }
+        }
+
+        window.submitWithStatus = submitWithStatus;
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            /* Forms that opt in with data-status-submit */
+            document.querySelectorAll("form[data-status-submit]").forEach(function (form) {
+
+                form.addEventListener("submit", function (event) {
+
+                    event.preventDefault();
+
+                    /* Respect the unobtrusive validation rules */
+                    if (window.jQuery && jQuery.validator && !jQuery(form).valid()) {
+                        return;
+                    }
+
+                    submitWithStatus(form);
+                });
+            });
+
+            /* Message left by the previous request (TempData) */
+            const data = document.getElementById("statusData");
+
+            if (data) {
+                window.showStatusDialog({
+                    type: data.dataset.type,
+                    message: data.dataset.message
+                });
+            }
+        });
+
+    })();
+</script>

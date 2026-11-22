@@ -1,0 +1,25 @@
+services:
+  sqlserver:
+    image: sqlserver:2025
+    container_name: sqlserver-base
+    hostname: sqlserver-base
+
+    privileged: true
+    cgroup: host
+
+    restart: unless-stopped
+
+    ports:
+      - "1440:1440"
+
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./secrets/sqlserver.env:/etc/sqlserver-secrets/sqlserver.env:ro
+
+    tmpfs:
+      - /run
+      - /run/lock
+
+volumes:
+  sqlserver-data:

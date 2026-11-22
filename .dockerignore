@@ -1,0 +1,13 @@
+# Ignore everything
+*
+
+# Allow solution
+!Medical.slnx
+
+# Allow project directories and their contents
+!Medical.PL/
+!Medical.PL/**
+!Medical.BLL/
+!Medical.BLL/**
+!Medical.DAL/
+!Medical.DAL/**

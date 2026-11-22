@@ -1,0 +1,228 @@
+@model Medical.BLL.ViewModels.UserProfile.ProfileEditViewModel
+
+@{
+    ViewData["Title"] = "Edit Profile";
+
+    var nameParts = new[] { Model.FirstName?.Trim(), Model.LastName?.Trim() }
+        .Where(part => !string.IsNullOrEmpty(part))
+        .ToList();
+
+    var initials = nameParts.Count == 0
+        ? "U"
+        : string.Concat(nameParts.Select(part => char.ToUpper(part![0])));
+
+    var displayName = nameParts.Count == 0 ? "Your profile" : string.Join(" ", nameParts);
+}
+
+<style>
+    /* Same structure and tokens as the profile Details page, so the two feel like one place */
+    .profile {
+        --p-ink: var(--medical-dark, #1c2733);
+        --p-muted: var(--medical-muted, #4f5b66);
+        --p-line: var(--medical-border, #d4d6cf);
+        --p-surface: var(--medical-surface, #e8e8e2);
+        --p-accent: var(--medical-primary, #1d5c63);
+        --p-error: #a63232;
+        color: var(--p-ink);
+    }
+
+    .profile h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .25rem; }
+    .profile .lead-text { color: var(--p-muted); margin: 0; }
+
+    .profile .panel { border: 1px solid var(--p-line); border-radius: 4px; background: var(--medical-card, #fafaf8); }
+
+    /* Identity card (identical to Details) */
+    .profile .identity { padding: 1.75rem 1.5rem; text-align: center; }
+    .profile .avatar {
+        width: 96px; height: 96px; margin: 0 auto 1rem;
+        display: grid; place-items: center;
+        border: 1px solid var(--p-line); border-radius: 4px;
+        background: var(--p-surface); color: var(--p-accent);
+        font-size: 2rem; font-weight: 600; letter-spacing: .02em;
+        user-select: none;
+    }
+    .profile .identity h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 .15rem; overflow-wrap: anywhere; }
+    .profile .identity .handle { color: var(--p-muted); font-size: .95rem; overflow-wrap: anywhere; }
+    .profile .identity-note { margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid var(--p-line);
+                              text-align: left; font-size: .92rem; color: var(--p-muted); line-height: 1.55; }
+    .profile .identity-note strong { display: block; color: var(--p-ink); margin-bottom: .2rem; }
+
+    /* Section bars (identical to Details) */
+    .profile .section-title {
+        margin: 0; padding: .85rem 1.25rem;
+        font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--p-muted); background: var(--p-surface);
+        border-bottom: 1px solid var(--p-line);
+    }
+    .profile .panel > .section-title:not(:first-child) { border-top: 1px solid var(--p-line); }
+
+    /* Rows: same label column as Details, with an input where the value was */
+    .profile .field {
+        display: grid; grid-template-columns: 12rem 1fr; gap: 1rem; align-items: start;
+        padding: .9rem 1.25rem; border-bottom: 1px solid var(--p-line);
+    }
+    .profile .field:last-of-type { border-bottom: 0; }
+    .profile .field > label { padding-top: .55rem; color: var(--p-muted); font-weight: 400; margin: 0; }
+
+    .profile .form-control-custom {
+        display: block; width: 100%; max-width: 32rem; min-height: 44px; padding: .5rem .75rem;
+        border: 1px solid #b4bbb9; border-radius: 4px; background-color: var(--medical-card, #fafaf8);
+        font-size: 1rem; color: var(--p-ink);
+    }
+    .profile textarea.form-control-custom { min-height: 104px; resize: vertical; line-height: 1.5; }
+    .profile .form-control-custom:focus { border-color: var(--p-accent); box-shadow: 0 0 0 3px rgba(29, 92, 99, .18); outline: 0; }
+    .profile .input-validation-error { border-color: var(--p-error) !important; }
+
+    .profile .help-text { margin: .35rem 0 0; color: var(--p-muted); font-size: .9rem; }
+    .profile .field-error { display: block; margin-top: .3rem; color: var(--p-error); font-size: .9rem; }
+
+    /* Summary: hidden until the server returns an error */
+    .profile .validation-summary-valid { display: none; }
+    .profile .form-error {
+        margin-bottom: 1.25rem; padding: .7rem .9rem;
+        border: 1px solid #e3b9b9; border-left: 3px solid var(--p-error);
+        border-radius: 4px; background: #f8ecec; color: #6f2222; font-size: .95rem;
+    }
+    .profile .form-error ul { margin: 0; padding-left: 1.1rem; }
+
+    .profile .actions {
+        display: flex; flex-direction: column-reverse; gap: .6rem; justify-content: flex-end;
+        padding: 1rem 1.25rem; border-top: 1px solid var(--p-line); background: var(--p-surface);
+    }
+
+    @@media (min-width: 576px) {
+        .profile .actions { flex-direction: row; }
+    }
+    @@media (max-width: 575.98px) {
+        .profile .field { grid-template-columns: 1fr; gap: .15rem; }
+        .profile .field > label { padding-top: 0; color: var(--p-ink); font-weight: 600; }
+        .profile .actions .btn { text-align: center; }
+    }
+</style>
+
+<div class="profile">
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
+        <div>
+            <h1>Edit profile</h1>
+            <p class="lead-text">Update your personal and contact information.</p>
+        </div>
+    </div>
+
+    <form asp-controller="UserProfile" asp-action="Edit" method="post">
+
+        @Html.AntiForgeryToken()
+
+        <div asp-validation-summary="ModelOnly" class="form-error" role="alert"></div>
+
+        <div class="row g-4">
+
+            <!-- Identity -->
+            <div class="col-lg-4">
+                <div class="panel identity">
+
+                    <div class="avatar" aria-hidden="true">@initials</div>
+
+                    <h2>@displayName</h2>
+                    <div class="handle">@($"@{Model.UserName}")</div>
+
+                    <div class="identity-note">
+                        <strong>Keep your information accurate</strong>
+                        Your profile information may be used when creating and managing license transactions.
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="col-lg-8">
+                <div class="panel">
+
+                    <h2 class="section-title">Personal information</h2>
+
+                    <div class="field">
+                        <label asp-for="FirstName">First name</label>
+                        <div>
+                            <input asp-for="FirstName" class="form-control form-control-custom"
+                                   placeholder="Enter your first name" autocomplete="given-name" />
+                            <span asp-validation-for="FirstName" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="LastName">Last name</label>
+                        <div>
+                            <input asp-for="LastName" class="form-control form-control-custom"
+                                   placeholder="Enter your last name" autocomplete="family-name" />
+                            <span asp-validation-for="LastName" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="UserName">Username</label>
+                        <div>
+                            <input asp-for="UserName" class="form-control form-control-custom"
+                                   placeholder="Enter your username" autocomplete="username" />
+                            <p class="help-text">Use lowercase letters, numbers, underscores, and single dots.</p>
+                            <span asp-validation-for="UserName" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="BirthDate">Date of birth</label>
+                        <div>
+                            <input asp-for="BirthDate" type="date" class="form-control form-control-custom" />
+                            <span asp-validation-for="BirthDate" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Nationality">Nationality</label>
+                        <div>
+                            <input asp-for="Nationality" class="form-control form-control-custom"
+                                   placeholder="e.g. Egyptian" autocomplete="country-name" />
+                            <span asp-validation-for="Nationality" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Address">Address</label>
+                        <div>
+                            <textarea asp-for="Address" class="form-control form-control-custom" rows="4"
+                                      placeholder="Enter your address" autocomplete="street-address"></textarea>
+                            <p class="help-text">Maximum 200 characters.</p>
+                            <span asp-validation-for="Address" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <h2 class="section-title">Contact</h2>
+
+                    <div class="field">
+                        <label asp-for="PhoneNumber">Phone number</label>
+                        <div>
+                            <input asp-for="PhoneNumber" class="form-control form-control-custom"
+                                   placeholder="+20 1XXXXXXXXX" autocomplete="tel" />
+                            <p class="help-text">Enter your phone number using international format.</p>
+                            <span asp-validation-for="PhoneNumber" class="field-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <a asp-controller="UserProfile" asp-action="Details" class="btn btn-outline-medical">Cancel</a>
+                        <button type="submit" class="btn btn-medical">Save changes</button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </form>
+
+</div>
+
+@section Scripts {
+
+    <partial name="_ValidationScriptsPartial" />
+
+}

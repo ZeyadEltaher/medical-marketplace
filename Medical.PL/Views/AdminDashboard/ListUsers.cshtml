@@ -1,0 +1,181 @@
+@model List<Medical.BLL.ViewModels.AdminDashboard.UserListViewModel>
+
+@{
+    ViewData["Title"] = "Users";
+}
+
+<style>
+    .users {
+        --u-ink: var(--medical-dark, #1c2733);
+        --u-muted: var(--medical-muted, #4f5b66);
+        --u-line: var(--medical-border, #d4d6cf);
+        --u-tint: var(--medical-surface, #e8e8e2);
+        --u-accent: var(--medical-primary, #1d5c63);
+        --u-ok: #1f6b3a;
+        --u-warn: #96501f;
+        color: var(--u-ink);
+        font-size: 1.0625rem;           /* 17px base for the whole page */
+    }
+
+    .users h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .3rem; }
+    .users .lead-text { color: var(--u-muted); margin: 0; font-size: 1.05rem; }
+    .users .count { color: var(--u-muted); font-size: 1.05rem; white-space: nowrap; }
+    .users .count strong { color: var(--u-ink); font-weight: 700; }
+
+    /* The sheet: no card, no shadow, just ruled lines */
+    .users .sheet-wrap { overflow-x: auto; border-top: 2px solid var(--u-accent); }
+    .users .sheet { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 1.0625rem; }
+
+    .users .sheet thead th {
+        padding: .85rem 1.1rem;
+        background: var(--u-tint);
+        border-bottom: 1px solid var(--u-line);
+        color: var(--u-ink);
+        font-size: .875rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        text-align: left; white-space: nowrap;
+    }
+    .users .sheet tbody td {
+        padding: 1.05rem 1.1rem;
+        border-bottom: 1px solid var(--u-line);
+        vertical-align: middle;
+        line-height: 1.45;
+    }
+    .users .sheet tbody tr:hover { background: rgba(29, 92, 99, .06); }
+
+    .users .col-action { text-align: right !important; }
+
+    .users .name { font-weight: 600; font-size: 1.125rem; }
+    .users .name.unset { font-weight: 400; color: var(--u-muted); }
+    .users .sub { display: block; color: var(--u-muted); font-size: 1rem; }
+    .users .email { overflow-wrap: anywhere; }
+
+    .users .state { display: block; font-size: 1rem; font-weight: 600; color: var(--u-muted); }
+    .users .state.ok { color: var(--u-ok); }
+    .users .state.warn { color: var(--u-warn); }
+    .users .none { color: var(--u-muted); }
+
+    /* Larger click target for the row action */
+    .users .row-link {
+        display: inline-block; padding: .45rem .8rem;
+        color: var(--u-accent); font-size: 1.0625rem; font-weight: 600;
+        text-decoration: underline; text-underline-offset: 4px;
+        border-radius: 4px;
+    }
+    .users .row-link:hover { color: var(--medical-primary-hover, #164a50); background: rgba(29, 92, 99, .08); }
+
+    .users .empty { padding: 3.5rem 1rem; text-align: center; border-top: 2px solid var(--u-accent);
+                    border-bottom: 1px solid var(--u-line); }
+    .users .empty h2 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .3rem; }
+    .users .empty p { margin: 0; color: var(--u-muted); }
+</style>
+
+<div class="users">
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-end gap-2 mb-4">
+        <div>
+            <h1>Users</h1>
+            <p class="lead-text">Registered users and their verification status.</p>
+        </div>
+
+        <div class="count">
+            <strong>@Model.Count</strong> @(Model.Count == 1 ? "user" : "users")
+        </div>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <h2>No users found</h2>
+            <p>There are currently no registered users.</p>
+        </div>
+    }
+    else
+    {
+        <div class="sheet-wrap">
+            <table class="sheet">
+
+                <caption class="visually-hidden">List of registered users</caption>
+
+                <thead>
+                    <tr>
+                        <th scope="col">User</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col">Profile</th>
+                        <th scope="col">Joined</th>
+                        <th scope="col" class="col-action">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        <tr>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(user.FullName))
+                                {
+                                    <span class="name unset">Name not set</span>
+                                }
+                                else
+                                {
+                                    <span class="name">@user.FullName</span>
+                                }
+                                <span class="sub">@($"@{user.UserName}")</span>
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(user.Email))
+                                {
+                                    <span class="email">@user.Email</span>
+                                    <span class="state @(user.IsEmailConfirmed ? "ok" : "")">
+                                        @(user.IsEmailConfirmed ? "Verified" : "Not verified")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="none">Not provided</span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+                                {
+                                    <span>@user.PhoneNumber</span>
+                                    <span class="state @(user.IsPhoneConfirmed ? "ok" : "")">
+                                        @(user.IsPhoneConfirmed ? "Verified" : "Not verified")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="none">Not provided</span>
+                                }
+                            </td>
+
+                            <td>
+                                <span class="state @(user.IsProfileCompleted ? "ok" : "warn")">
+                                    @(user.IsProfileCompleted ? "Complete" : "Incomplete")
+                                </span>
+                            </td>
+
+                            <td>
+                                <span class="none">@user.CreatedAt.ToString("MMM dd, yyyy")</span>
+                            </td>
+
+                            <td class="col-action">
+                                <a asp-controller="AdminDashboard"
+                                   asp-action="ViewUser"
+                                   asp-route-userId="@user.Id"
+                                   class="row-link"
+                                   aria-label="View @(string.IsNullOrWhiteSpace(user.FullName) ? user.UserName : user.FullName)">
+                                    View
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    }
+
+</div>

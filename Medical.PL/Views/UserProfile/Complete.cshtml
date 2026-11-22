@@ -1,0 +1,454 @@
+@model Medical.BLL.ViewModels.UserProfile.ProfileEditViewModel
+
+@{
+    ViewData["Title"] = "Complete Profile";
+    ViewData["LayoutMode"] = "Onboarding";
+}
+
+<style>
+    /* A large landscape card: 80% of the screen width, up to 78% of its height, with one welcome line above it */
+    .onb {
+        --o-ink: var(--medical-dark, #1c2733);
+        --o-muted: var(--medical-muted, #4f5b66);
+        --o-line: var(--medical-border, #d4d6cf);
+        --o-tint: var(--medical-surface, #e8e8e2);
+        --o-card: var(--medical-card, #fafaf8);
+        --o-accent: var(--medical-primary, #1d5c63);
+        --o-deep: var(--medical-deep, #17454b);
+        --o-wash: #dde9e7;
+        --o-wash-line: #c5d6d3;
+        --o-error: #a63232;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        color: var(--o-ink);
+        font-size: 1.125rem;
+    }
+
+    .onb .frame { width: min(80vw, 90rem); }
+
+    .onb .intro { margin: 0 0 1rem; color: var(--o-ink); font-size: 1.2rem; line-height: 1.45; font-weight: 500; }
+
+    .onb .shell {
+        height: min(78vh, 46rem);
+        min-height: 27rem;
+        display: grid;
+        grid-template-columns: minmax(18rem, 27%) minmax(0, 1fr);
+        background: var(--o-card);
+        border: 1px solid var(--o-line);
+        border-top: 3px solid var(--o-accent);
+        border-radius: 4px;
+    }
+
+    /* Left: who we are, what this is, where you are */
+    .onb .side {
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 2rem 1.75rem;
+        background: var(--o-wash);
+        border-right: 1px solid var(--o-wash-line);
+    }
+    .onb .brand { font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; color: var(--o-deep); }
+    .onb .side-mid { margin: 1.5rem 0; }
+    .onb h1 { font-size: 1.65rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; margin: 0 0 .6rem; }
+    .onb .lead-text { margin: 0 0 1.75rem; color: #3f4f58; font-size: 1rem; line-height: 1.55; }
+
+    .onb .steps-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+    .onb .steps-list li { display: flex; align-items: center; gap: .8rem; color: #3f4f58; }
+    .onb .marker {
+        display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 4px;
+        border: 1px solid #9fb8b4; background: var(--o-card); font-weight: 700;
+    }
+    .onb .steps-list strong { display: block; font-size: 1.05rem; line-height: 1.25; }
+    .onb .steps-list small { display: block; font-size: .92rem; }
+    .onb .steps-list li.is-current { color: var(--o-ink); }
+    .onb .steps-list li.is-current .marker { border: 2px solid var(--o-accent); color: var(--o-accent); }
+    .onb .steps-list li.is-done { color: var(--o-ink); }
+    .onb .steps-list li.is-done .marker { background: var(--o-accent); border-color: var(--o-accent); color: var(--o-card); }
+
+    .onb .side-foot { font-size: .95rem; color: #3f4f58; }
+    .onb .side-foot p { margin: 0 0 .5rem; }
+    .onb .signout { background: none; border: 0; padding: .2rem 0; color: var(--o-ink); font-size: 1rem; font-weight: 600;
+                    text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+    /* Right: the form */
+    .onb .form-side { display: flex; flex-direction: column; min-width: 0; }
+    .onb .form-side form { flex: 1; display: flex; flex-direction: column; margin: 0; min-height: 0; }
+
+    .onb .summary-wrap { padding: 1.25rem 2.5rem 0; }
+    .onb .validation-summary-valid { display: none; }
+    .onb .form-error { padding: .6rem .85rem; border: 1px solid #e3b9b9; border-left: 3px solid var(--o-error);
+                       border-radius: 4px; background: #f8ecec; color: #6f2222; font-size: 1rem; }
+    .onb .form-error ul { margin: 0; padding-left: 1.1rem; }
+
+    /* Both steps share one cell, so the card never changes size between steps */
+    .onb .steps-stack { flex: 1; display: grid; min-height: 0; }
+    .onb .profile-step { grid-area: 1 / 1; display: flex; flex-direction: column; min-width: 0; }
+    .onb .profile-step.is-hidden { visibility: hidden; pointer-events: none; }
+    .onb .profile-step.fade-in { animation: onbFade 200ms ease-out; }
+    @@keyframes onbFade { from { opacity: 0; } to { opacity: 1; } }
+
+    .onb .section-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 1.5rem 2.5rem; }
+    .onb .step-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: clamp(.9rem, 2.6vh, 1.6rem); }
+    .onb .step-heading h2 { font-size: 1.45rem; font-weight: 700; margin: 0; }
+    .onb .step-heading span { color: var(--o-muted); font-size: .95rem; white-space: nowrap; }
+    .onb .row { --bs-gutter-x: 1.5rem; --bs-gutter-y: clamp(.8rem, 2.6vh, 1.5rem); }
+
+    .onb .field-label { display: block; margin-bottom: .35rem; font-weight: 600; font-size: 1.05rem; }
+    .onb .req { color: var(--o-error); font-weight: 700; margin-left: .15rem; }
+    .onb .opt { color: var(--o-muted); font-weight: 400; margin-left: .35rem; }
+
+    .onb .form-control-custom {
+        display: block; width: 100%; min-height: clamp(46px, 6.4vh, 54px); padding: .5rem .9rem;
+        border: 1px solid #b4bbb9; border-radius: 4px; background-color: var(--o-card);
+        font-size: 1.125rem; color: var(--o-ink);
+    }
+    .onb textarea.form-control-custom { min-height: clamp(84px, 12vh, 116px); resize: none; line-height: 1.5; }
+    .onb .form-control-custom:focus { border-color: var(--o-accent); box-shadow: 0 0 0 3px rgba(29, 92, 99, .18); outline: 0; }
+    .onb .input-validation-error { border-color: var(--o-error) !important; }
+
+    .onb .help-text { margin: .4rem 0 0; color: var(--o-muted); font-size: .95rem; line-height: 1.45; }
+    .onb .field-error { display: block; margin-top: .25rem; color: var(--o-error); font-size: .95rem; }
+
+    .onb .actions {
+        display: flex; justify-content: space-between; gap: .6rem;
+        padding: 1.1rem 2.5rem; border-top: 1px solid var(--o-line); background: var(--o-tint);
+    }
+    .onb .actions .btn-medical, .onb .actions .btn-outline-medical { font-size: 1.125rem; padding: .6rem 1.8rem; }
+    .onb .actions .only-next { margin-left: auto; }
+
+    .onb a:focus-visible, .onb button:focus-visible { outline: 2px solid var(--o-accent); outline-offset: 2px; }
+
+    /* Short screens (small laptops, browser zoom): tighten so it still fits without scrolling */
+    @@media (max-height: 700px) {
+        .onb { padding-top: .6rem; padding-bottom: .6rem; }
+        .onb .intro { margin-bottom: .6rem; font-size: 1.05rem; }
+        .onb .shell { height: 80vh; }
+        .onb .side { padding: 1.25rem 1.5rem; }
+        .onb .lead-text { display: none; }
+        .onb h1 { margin-bottom: 1rem; }
+        .onb .section-body { padding: 1rem 2rem; }
+        .onb .summary-wrap { padding-left: 2rem; padding-right: 2rem; }
+        .onb .actions { padding: .8rem 2rem; }
+    }
+
+    /* Phones and small tablets: full width, stacked, natural height */
+    @@media (max-width: 767.98px) {
+        .onb { align-items: flex-start; font-size: 1.0625rem; }
+        .onb .frame { width: 100%; }
+        .onb .intro { font-size: 1.05rem; }
+        .onb .shell { height: auto; min-height: 0; grid-template-columns: 1fr; }
+        .onb .side { padding: 1.1rem 1.25rem; border-right: 0; border-bottom: 1px solid var(--o-wash-line); }
+        .onb .side-mid { margin: .6rem 0 .5rem; }
+        .onb h1 { margin: 0 0 .8rem; font-size: 1.35rem; }
+        .onb .lead-text, .onb .side-foot p, .onb .steps-list small { display: none; }
+        .onb .steps-list { grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .onb .summary-wrap { padding: 1rem 1.25rem 0; }
+        .onb .section-body { padding: 1.25rem 1.25rem 1rem; }
+        .onb .actions { padding: .9rem 1.25rem; }
+        .onb .form-control-custom { min-height: 48px; }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .onb .profile-step.fade-in { animation: none; }
+    }
+</style>
+
+<div class="onb">
+<div class="frame">
+
+    <p class="intro">
+        Your account is almost ready. Complete your profile to start browsing, listing and transferring medical product licenses.
+    </p>
+
+    <div class="shell">
+
+        <!-- Left: context and progress. No site navigation while the profile is incomplete. -->
+        <aside class="side">
+
+            <span class="brand">Medical Portal</span>
+
+            <div class="side-mid">
+            <h1>Complete your profile</h1>
+            <p class="lead-text">Provide a few details to finish setting up your account.</p>
+
+            <ol class="steps-list" aria-label="Progress">
+                <li id="progress1" class="is-current" aria-current="step">
+                    <span class="marker" aria-hidden="true">1</span>
+                    <span><strong>Personal information</strong><small>Step 1 of 2</small></span>
+                </li>
+                <li id="progress2">
+                    <span class="marker" aria-hidden="true">2</span>
+                    <span><strong>Additional information</strong><small>Step 2 of 2</small></span>
+                </li>
+            </ol>
+            </div>
+
+            <div class="side-foot">
+                <p>Your information is securely stored.</p>
+
+                <form asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="signout">Sign out</button>
+                </form>
+            </div>
+
+        </aside>
+
+        <!-- Right: the form -->
+        <div class="form-side">
+
+            <form asp-action="Complete"
+                  asp-controller="UserProfile"
+                  asp-route-returnUrl="@Context.Request.Query["returnUrl"]"
+                  method="post"
+                  id="completeProfileForm">
+
+                <div class="summary-wrap">
+                    <div asp-validation-summary="ModelOnly" class="form-error" role="alert"></div>
+                </div>
+
+                <div class="steps-stack">
+
+                    <!-- Step 1 -->
+                    <section id="step1" class="profile-step">
+
+                        <div class="section-body">
+
+                            <div class="step-heading">
+                                <h2>Personal information</h2>
+                                <span><span class="req">*</span> required</span>
+                            </div>
+
+                            <div class="row g-3">
+
+                                <div class="col-12">
+                                    <label asp-for="UserName" class="field-label">Username<span class="req">*</span></label>
+                                    <input asp-for="UserName" class="form-control form-control-custom"
+                                           placeholder="Choose a username" autocomplete="username" />
+                                    <p class="help-text">
+                                        Other users will see this name. Replace the temporary one we generated with your own,
+                                        using lowercase letters, numbers, underscores, and single dots.
+                                    </p>
+                                    <span asp-validation-for="UserName" class="field-error"></span>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="FirstName" class="field-label">First name<span class="req">*</span></label>
+                                    <input asp-for="FirstName" class="form-control form-control-custom"
+                                           placeholder="Enter your first name" autocomplete="given-name" />
+                                    <span asp-validation-for="FirstName" class="field-error"></span>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="LastName" class="field-label">Last name<span class="req">*</span></label>
+                                    <input asp-for="LastName" class="form-control form-control-custom"
+                                           placeholder="Enter your last name" autocomplete="family-name" />
+                                    <span asp-validation-for="LastName" class="field-error"></span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button type="button" id="nextButton" class="btn btn-medical only-next">Continue</button>
+                        </div>
+
+                    </section>
+
+                    <!-- Step 2 -->
+                    <section id="step2" class="profile-step is-hidden" aria-hidden="true">
+
+                        <div class="section-body">
+
+                            <div class="step-heading">
+                                <h2>Additional information</h2>
+                                <span><span class="req">*</span> required</span>
+                            </div>
+
+                            <div class="row g-3">
+
+                                <div class="col-md-6">
+                                    <label asp-for="BirthDate" class="field-label">Date of birth<span class="req">*</span></label>
+                                    <input asp-for="BirthDate" type="date" class="form-control form-control-custom" autocomplete="bday" />
+                                    <span asp-validation-for="BirthDate" class="field-error"></span>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="Nationality" class="field-label">Nationality<span class="req">*</span></label>
+                                    <input asp-for="Nationality" class="form-control form-control-custom"
+                                           placeholder="e.g. Egyptian" autocomplete="country-name" />
+                                    <span asp-validation-for="Nationality" class="field-error"></span>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="PhoneNumber" class="field-label">Phone number<span class="opt">(optional)</span></label>
+                                    <input asp-for="PhoneNumber" class="form-control form-control-custom"
+                                           placeholder="+20 100 000 0000" autocomplete="tel" />
+                                    <span asp-validation-for="PhoneNumber" class="field-error"></span>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label asp-for="Address" class="field-label">Address<span class="opt">(optional)</span></label>
+                                    <textarea asp-for="Address" class="form-control form-control-custom" rows="2"
+                                              placeholder="Enter your address" autocomplete="street-address"></textarea>
+                                    <span asp-validation-for="Address" class="field-error"></span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="actions">
+                            <button type="button" id="backButton" class="btn btn-outline-medical">Back</button>
+                            <button type="submit" id="submitButton" class="btn btn-medical">Complete profile</button>
+                        </div>
+
+                    </section>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+</div>
+
+@section Scripts {
+
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const form = document.getElementById("completeProfileForm");
+            const step1 = document.getElementById("step1");
+            const step2 = document.getElementById("step2");
+            const nextButton = document.getElementById("nextButton");
+            const backButton = document.getElementById("backButton");
+            const submitButton = document.getElementById("submitButton");
+            const progress1 = document.getElementById("progress1");
+            const progress2 = document.getElementById("progress2");
+
+            let currentStep = 1;
+
+            const step1Fields = ["UserName", "FirstName", "LastName"];
+            const step2Fields = ["BirthDate", "Nationality", "PhoneNumber", "Address"];
+
+            /* Progress indicator */
+            function updateProgress(step) {
+
+                progress1.classList.toggle("is-current", step === 1);
+                progress1.classList.toggle("is-done", step === 2);
+                progress2.classList.toggle("is-current", step === 2);
+
+                progress1.querySelector(".marker").textContent = step === 2 ? "\u2713" : "1";
+
+                if (step === 1) {
+                    progress1.setAttribute("aria-current", "step");
+                    progress2.removeAttribute("aria-current");
+                } else {
+                    progress2.setAttribute("aria-current", "step");
+                    progress1.removeAttribute("aria-current");
+                }
+            }
+
+            /* Show a step. Both steps keep their space, so the card never changes size. */
+            function showStep(step) {
+
+                const currentElement = currentStep === 1 ? step1 : step2;
+                const nextElement = step === 1 ? step1 : step2;
+
+                if (currentElement === nextElement) {
+                    return;
+                }
+
+                currentElement.classList.add("is-hidden");
+                currentElement.setAttribute("aria-hidden", "true");
+
+                nextElement.classList.remove("is-hidden", "fade-in");
+                nextElement.removeAttribute("aria-hidden");
+                void nextElement.offsetWidth;
+                nextElement.classList.add("fade-in");
+
+                currentStep = step;
+
+                updateProgress(step);
+
+                const firstField = nextElement.querySelector("input, textarea, select");
+
+                if (firstField) {
+                    firstField.focus({ preventScroll: true });
+                }
+            }
+
+            /* Validate every field of a step with the ASP.NET unobtrusive rules */
+            function validateStep(stepElement) {
+
+                let isValid = true;
+
+                stepElement.querySelectorAll("input, textarea, select").forEach(function (input) {
+
+                    if (input.disabled) {
+                        return;
+                    }
+
+                    if (!$(input).valid()) {
+                        isValid = false;
+                    }
+                });
+
+                return isValid;
+            }
+
+            nextButton.addEventListener("click", function () {
+
+                if (!validateStep(step1)) {
+                    return;
+                }
+
+                showStep(2);
+            });
+
+            backButton.addEventListener("click", function () {
+                showStep(1);
+            });
+
+            /* Server validation: open the step that has the error */
+            function hasServerError(fieldName) {
+
+                const validationElement = document.querySelector('[data-valmsg-for="' + fieldName + '"]');
+
+                return validationElement && validationElement.textContent.trim() !== "";
+            }
+
+            const step1HasError = step1Fields.some(hasServerError);
+            const step2HasError = step2Fields.some(hasServerError);
+
+            if (step2HasError && !step1HasError) {
+                showStep(2);
+            }
+
+            /* Submit */
+            form.addEventListener("submit", function (event) {
+
+                if (!validateStep(step1)) {
+                    event.preventDefault();
+                    showStep(1);
+                    return;
+                }
+
+                if (!validateStep(step2)) {
+                    event.preventDefault();
+                    showStep(2);
+                    return;
+                }
+
+                submitButton.disabled = true;
+                submitButton.textContent = "Saving\u2026";
+            });
+        });
+    </script>
+
+}

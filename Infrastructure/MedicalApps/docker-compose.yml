@@ -1,0 +1,95 @@
+x-medical-common: &medical-common
+
+  image: medical-app:latest
+
+  build:
+    context: ../..
+    dockerfile: Medical.PL/Dockerfile
+
+  restart: unless-stopped
+
+  environment:
+    ASPNETCORE_URLS: "https://+:7110"
+
+    ASPNETCORE_Kestrel__Certificates__Default__Path: /https/medical.pfx
+
+    ASPNETCORE_Kestrel__Certificates__Default__Password: ${MEDICAL_CERT_PASSWORD}
+
+    Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID}
+    
+    Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET}
+
+    Admin__Username: ${ADMIN_USERNAME}
+
+    Admin__Email: ${ADMIN_EMAIL}
+
+    Admin__Password: ${ADMIN_PASSWORD}
+
+    ConnectionStrings__DefaultConnection: "Server=172.32.0.100,1433;Database=MedicalDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultiSubnetFailover=True;ApplicationIntent=ReadWrite;"
+
+  volumes:
+    # HTTPS certificate
+    - ../NginxKeepalived/certs:/https:ro
+
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+
+services:
+
+  medical1:
+    <<: *medical-common
+
+    container_name: medical-app-1
+
+    networks:
+      medical-ha:
+        ipv4_address: 172.30.0.13
+        
+      redis-cluster: {}
+      sql-ha: {}
+
+
+  medical2:
+    <<: *medical-common
+
+    container_name: medical-app-2
+
+    networks:
+      medical-ha:
+        ipv4_address: 172.30.0.14
+
+      redis-cluster: {}
+      sql-ha: {}
+
+
+  medical3:
+    <<: *medical-common
+
+    container_name: medical-app-3
+
+    networks:
+      medical-ha:
+        ipv4_address: 172.30.0.15
+
+      redis-cluster: {}
+      sql-ha: {}
+
+
+networks:
+  medical-ha:
+    name: medical-ha
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1
+
+  redis-cluster:
+    external: true
+    name: redis-cluster
+
+  sql-ha:
+    external: true
+    name: sqlserver-ha
+    

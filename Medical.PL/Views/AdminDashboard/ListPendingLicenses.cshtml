@@ -1,0 +1,8 @@
+@model List<Medical.BLL.ViewModels.License.LicenseListViewModel>
+
+@{
+    ViewBag.IsAdmin = true;
+    ViewBag.IsPending = true;
+}
+
+<partial name="_LicenseList" model="Model" />

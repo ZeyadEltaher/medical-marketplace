@@ -1,0 +1,326 @@
+@model List<Medical.BLL.ViewModels.UserRequest.RequestListViewModel>
+
+@using Medical.DAL.Constants
+
+@{
+    ViewData["Title"] = "Transfer Requests";
+
+    string currentPath = Context.Request.Path.Value?.ToLower() ?? "";
+
+    bool isSentPage = currentPath.Contains("/requests/sent");
+    bool isReceivedPage = currentPath.Contains("/requests/received");
+
+    bool isPending = currentPath.EndsWith("/pending");
+    bool isApproved = currentPath.EndsWith("/approved");
+    bool isRejected = currentPath.EndsWith("/rejected");
+    bool isCancelled = currentPath.EndsWith("/cancelled");
+
+    string pageTitle = isReceivedPage
+        ? "Received transfer requests"
+        : "My transfer requests";
+
+    string pageDescription = isReceivedPage
+        ? "Review transfer requests received for your licenses."
+        : "Track the transfer requests you have submitted.";
+
+    string statusLabel =
+        isPending ? "Pending" :
+        isApproved ? "Approved" :
+        isRejected ? "Rejected" :
+        isCancelled ? "Cancelled" :
+        "All";
+
+    bool isAll = statusLabel == "All";
+
+    string emptyTitle = isAll ? "No requests yet" : $"No {statusLabel.ToLower()} requests";
+    string emptyText = isReceivedPage
+        ? "Transfer requests for your licenses will appear here."
+        : "When you request a transfer, you can follow it here.";
+}
+
+<style>
+    .requests {
+        --l-ink: var(--medical-dark, #1c2733);
+        --l-muted: var(--medical-muted, #4f5b66);
+        --l-line: var(--medical-border, #d4d6cf);
+        --l-tint: var(--medical-surface, #e8e8e2);
+        --l-accent: var(--medical-primary, #1d5c63);
+        --l-ok: #1f6b3a;
+        --l-warn: #96501f;
+        --l-bad: #a63232;
+        color: var(--l-ink);
+        font-size: 1.0625rem;
+    }
+
+    .requests h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .3rem; }
+    .requests .lead-text { color: var(--l-muted); margin: 0; font-size: 1.05rem; }
+    .requests .meta { margin-bottom: .6rem; color: var(--l-muted); font-size: 1.05rem; }
+    .requests .meta strong { color: var(--l-ink); font-weight: 700; }
+
+    .requests .btn-medical, .requests .btn-outline-medical { font-size: 1.0625rem; padding: .55rem 1.2rem; }
+
+    /* The sheet: no card, no shadow, just ruled lines */
+    .requests .sheet-wrap { overflow-x: auto; border-top: 2px solid var(--l-accent); }
+    .requests .sheet { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 1.0625rem; }
+
+    .requests .sheet thead th {
+        padding: .85rem 1rem;
+        background: var(--l-tint);
+        border-bottom: 1px solid var(--l-line);
+        color: var(--l-ink);
+        font-size: .875rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        text-align: left; white-space: nowrap;
+    }
+    .requests .sheet tbody td {
+        padding: 1.05rem 1rem;
+        border-bottom: 1px solid var(--l-line);
+        vertical-align: middle;
+        line-height: 1.45;
+    }
+    .requests .sheet tbody tr:hover { background: rgba(29, 92, 99, .06); }
+
+    .requests .col-action { text-align: right !important; }
+
+    .requests .name { display: block; font-weight: 600; font-size: 1.125rem; }
+    .requests .sub { display: block; color: var(--l-muted); font-size: 1rem; }
+    .requests .muted { color: var(--l-muted); }
+    .requests .reg { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1rem; white-space: nowrap; }
+    .requests .price { font-weight: 600; white-space: nowrap; }
+    .requests .price small { color: var(--l-muted); font-weight: 400; font-size: .95rem; }
+
+    /* Status tag */
+    .requests .tag {
+        display: inline-block; padding: .1rem .6rem;
+        border: 1px solid var(--l-line); border-radius: 3px;
+        background: var(--medical-card, #fafaf8); color: var(--l-muted);
+        font-size: .95rem; font-weight: 600; white-space: nowrap;
+    }
+    .requests .tag.ok   { color: var(--l-ok);   border-color: #b9dcc5; background: #f1f8f3; }
+    .requests .tag.warn { color: var(--l-warn); border-color: #e6c9b3; background: #fbf3ec; }
+    .requests .tag.bad  { color: var(--l-bad);  border-color: #e3b9b9; background: #f8ecec; }
+
+    /* Actions */
+    .requests .actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; align-items: center; }
+    .requests .actions form { margin: 0; }
+    .requests .row-link {
+        display: inline-block; padding: .45rem .8rem;
+        color: var(--l-accent); font-weight: 600;
+        text-decoration: underline; text-underline-offset: 4px; border-radius: 4px;
+    }
+    .requests .row-link:hover { color: var(--medical-primary-hover, #164a50); background: rgba(29, 92, 99, .08); }
+
+    .requests .act {
+        padding: .42rem .95rem; border-radius: 4px; font-size: 1rem; font-weight: 600; cursor: pointer;
+        border: 1px solid var(--l-accent); background: var(--l-accent); color: var(--medical-card, #fafaf8);
+    }
+    .requests .act:hover { background: var(--medical-primary-hover, #164a50); border-color: var(--medical-primary-hover, #164a50); }
+    .requests .act.reject { background: transparent; color: var(--l-bad); border-color: var(--l-bad); }
+    .requests .act.reject:hover { background: var(--l-bad); color: var(--medical-card, #fafaf8); }
+
+    .requests .empty { padding: 3.5rem 1rem; text-align: center; border-top: 2px solid var(--l-accent);
+                       border-bottom: 1px solid var(--l-line); }
+    .requests .empty h2 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .3rem; }
+    .requests .empty p { margin: 0 auto 1.25rem; color: var(--l-muted); max-width: 44ch; }
+
+    /* Phones: each row becomes a labelled block instead of a wide table */
+    @@media (max-width: 767.98px) {
+        .requests .sheet-wrap { overflow-x: visible; }
+        .requests .sheet { min-width: 0; }
+        .requests .sheet thead { display: none; }
+        .requests .sheet, .requests .sheet tbody, .requests .sheet tr, .requests .sheet td { display: block; width: 100%; }
+        .requests .sheet tbody tr { padding: .9rem 0; border-bottom: 1px solid var(--l-line); }
+        .requests .sheet tbody tr:hover { background: transparent; }
+        .requests .sheet tbody td { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border: 0; }
+        .requests .sheet tbody td::before { content: attr(data-label); color: var(--l-muted); font-weight: 600; flex: 0 0 auto; }
+        .requests .sheet tbody td[data-label=""]::before { display: none; }
+        .requests .sheet tbody td.cell-title { display: block; padding-bottom: .5rem; }
+        .requests .sheet tbody td.col-action { display: block; padding-top: .6rem; }
+        .requests .actions { justify-content: flex-start; }
+    }
+
+    /* Status filter chips */
+    .requests .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
+    .requests .chip {
+        display: inline-block; padding: .4rem .95rem;
+        border: 1px solid #b4bbb9; border-radius: 4px;
+        background: var(--medical-card, #fafaf8); color: var(--l-ink);
+        font-size: 1.0625rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+    }
+    .requests .chip:hover { border-color: var(--l-accent); color: var(--l-ink); }
+    .requests .chip.active { background: var(--l-accent); border-color: var(--l-accent); color: var(--medical-card, #fafaf8); }
+    .requests .chip:focus-visible { outline: 2px solid var(--l-accent); outline-offset: 2px; }
+
+    .requests .party { display: block; }
+    .requests .party .muted { display: inline-block; min-width: 3.8rem; font-size: 1rem; }
+    .requests .count { color: var(--l-muted); font-size: 1.05rem; white-space: nowrap; }
+    .requests .count strong { color: var(--l-ink); font-weight: 700; }
+    .requests .tag.off { color: var(--l-muted); background: var(--medical-surface, #e8e8e2); }
+
+    @@media (max-width: 767.98px) {
+        .requests .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
+    }
+</style>
+
+<div class="requests">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2 mb-4">
+        <div>
+            <h1>@pageTitle</h1>
+            <p class="lead-text">@pageDescription</p>
+        </div>
+
+        <div class="count">
+            <strong>@Model.Count</strong> @(Model.Count == 1 ? "request" : "requests")
+        </div>
+    </div>
+
+    <!-- Status filter -->
+    <nav class="chips" aria-label="Filter by status">
+        @if (isReceivedPage)
+        {
+            <a asp-controller="UserRequest" asp-action="ListReceivedRequests"
+               class="chip @(isAll ? "active" : "")" aria-current="@(isAll ? "page" : null)">All</a>
+            <a asp-controller="UserRequest" asp-action="ListPendingReceivedRequests"
+               class="chip @(isPending ? "active" : "")" aria-current="@(isPending ? "page" : null)">Pending</a>
+            <a asp-controller="UserRequest" asp-action="ListApprovedReceivedRequests"
+               class="chip @(isApproved ? "active" : "")" aria-current="@(isApproved ? "page" : null)">Approved</a>
+            <a asp-controller="UserRequest" asp-action="ListRejectedReceivedRequests"
+               class="chip @(isRejected ? "active" : "")" aria-current="@(isRejected ? "page" : null)">Rejected</a>
+        }
+        else
+        {
+            <a asp-controller="UserRequest" asp-action="ListSentRequests"
+               class="chip @(isAll ? "active" : "")" aria-current="@(isAll ? "page" : null)">All</a>
+            <a asp-controller="UserRequest" asp-action="ListPendingSentRequests"
+               class="chip @(isPending ? "active" : "")" aria-current="@(isPending ? "page" : null)">Pending</a>
+            <a asp-controller="UserRequest" asp-action="ListApprovedSentRequests"
+               class="chip @(isApproved ? "active" : "")" aria-current="@(isApproved ? "page" : null)">Approved</a>
+            <a asp-controller="UserRequest" asp-action="ListRejectedSentRequests"
+               class="chip @(isRejected ? "active" : "")" aria-current="@(isRejected ? "page" : null)">Rejected</a>
+            <a asp-controller="UserRequest" asp-action="ListCancelledSentRequests"
+               class="chip @(isCancelled ? "active" : "")" aria-current="@(isCancelled ? "page" : null)">Cancelled</a>
+        }
+    </nav>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <h2>@emptyTitle</h2>
+            <p>@emptyText</p>
+
+            @if (!isReceivedPage)
+            {
+                <a asp-controller="License" asp-action="List" class="btn btn-outline-medical">Browse licenses</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="sheet-wrap">
+            <table class="sheet">
+
+                <caption class="visually-hidden">@pageTitle</caption>
+
+                <thead>
+                    <tr>
+                        <th scope="col">License</th>
+                        <th scope="col">Seller / Buyer</th>
+                        <th scope="col">Asking price</th>
+                        <th scope="col">Requested</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="col-action">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var request in Model)
+                    {
+                        string statusClass = request.Status switch
+                        {
+                            RequestStatus.Pending => "warn",
+                            RequestStatus.Approved => "ok",
+                            RequestStatus.Rejected => "bad",
+                            RequestStatus.Cancelled => "off",
+                            _ => ""
+                        };
+
+                        <tr>
+                            <td class="cell-title" data-label="">
+                                <span class="name">@request.TradeName</span>
+                                <span class="sub">@request.LicenseCategory</span>
+                            </td>
+
+                            <td data-label="Parties">
+                                <span>
+                                    <span class="party"><span class="muted">Seller</span> @request.SellerUserName</span>
+                                    <span class="party"><span class="muted">Buyer</span> @request.BuyerUserName</span>
+                                </span>
+                            </td>
+
+                            <td data-label="Asking price">
+                                <span class="price">@request.AskingPrice.ToString("N2") <small>EGP</small></span>
+                            </td>
+
+                            <td data-label="Requested">
+                                <span class="muted">@request.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</span>
+                            </td>
+
+                            <td data-label="Status">
+                                <span class="tag @statusClass">@request.Status</span>
+                            </td>
+
+                            <td class="col-action" data-label="">
+                                <div class="actions">
+
+                                    <a asp-controller="UserRequest"
+                                       asp-action="Details"
+                                       asp-route-requestId="@request.Id"
+                                       class="row-link"
+                                       aria-label="View request for @request.TradeName">
+                                        View details
+                                    </a>
+
+                                    @if (request.Status == RequestStatus.Pending)
+                                    {
+                                        @if (isSentPage)
+                                        {
+                                            <form asp-controller="UserRequest"
+                                                  asp-action="CancelRequest"
+                                                  asp-route-requestId="@request.Id"
+                                                  method="post"
+                                                  onsubmit="return confirm('Are you sure you want to cancel this transfer request?');">
+                                                <button type="submit" class="act reject">Cancel request</button>
+                                            </form>
+                                        }
+
+                                        @if (isReceivedPage)
+                                        {
+                                            <form asp-controller="UserRequest"
+                                                  asp-action="ApproveRequest"
+                                                  asp-route-requestId="@request.Id"
+                                                  method="post"
+                                                  onsubmit="return confirm('Approve this transfer request?');">
+                                                <button type="submit" class="act">Approve</button>
+                                            </form>
+
+                                            <form asp-controller="UserRequest"
+                                                  asp-action="RejectRequest"
+                                                  asp-route-requestId="@request.Id"
+                                                  method="post"
+                                                  onsubmit="return confirm('Reject this transfer request?');">
+                                                <button type="submit" class="act reject">Reject</button>
+                                            </form>
+                                        }
+                                    }
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        </div>
+    }
+
+</div>

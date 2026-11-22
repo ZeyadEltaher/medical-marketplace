@@ -1,0 +1,282 @@
+@model List<Medical.BLL.ViewModels.License.LicenseListViewModel>
+
+@{
+    bool isAdmin = ViewBag.IsAdmin == true;
+    bool isPending = ViewBag.IsPending == true;
+
+    string heading = isAdmin ? "Manage licenses" : "My licenses";
+    string lead = isAdmin
+        ? (isPending ? "Review licenses awaiting approval." : "Review and manage all submitted licenses.")
+        : "Manage the licenses you own.";
+
+    string emptyTitle = isAdmin
+        ? (isPending ? "No pending licenses" : "No licenses found")
+        : "You don't have any licenses yet";
+
+    string emptyText = isAdmin
+        ? (isPending ? "There are currently no licenses waiting for approval." : "There are currently no licenses in the system.")
+        : "Once you add a license, it will appear here so you can manage it.";
+
+    string StatusClass(string status) => status switch
+    {
+        "Approved" => "ok",
+        "Rejected" => "bad",
+        "Pending" => "warn",
+        _ => ""
+    };
+
+    var count = Model?.Count ?? 0;
+}
+
+<style>
+    .licenses {
+        --l-ink: var(--medical-dark, #1c2733);
+        --l-muted: var(--medical-muted, #4f5b66);
+        --l-line: var(--medical-border, #d4d6cf);
+        --l-tint: var(--medical-surface, #e8e8e2);
+        --l-accent: var(--medical-primary, #1d5c63);
+        --l-ok: #1f6b3a;
+        --l-warn: #96501f;
+        --l-bad: #a63232;
+        color: var(--l-ink);
+        font-size: 1.0625rem;
+    }
+
+    .licenses h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .3rem; }
+    .licenses .lead-text { color: var(--l-muted); margin: 0; font-size: 1.05rem; }
+    .licenses .meta { margin-bottom: .6rem; color: var(--l-muted); font-size: 1.05rem; }
+    .licenses .meta strong { color: var(--l-ink); font-weight: 700; }
+
+    .licenses .btn-medical, .licenses .btn-outline-medical { font-size: 1.0625rem; padding: .55rem 1.2rem; }
+
+    /* The sheet: no card, no shadow, just ruled lines */
+    .licenses .sheet-wrap { overflow-x: auto; border-top: 2px solid var(--l-accent); }
+    .licenses .sheet { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 1.0625rem; }
+
+    .licenses .sheet thead th {
+        padding: .85rem 1rem;
+        background: var(--l-tint);
+        border-bottom: 1px solid var(--l-line);
+        color: var(--l-ink);
+        font-size: .875rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        text-align: left; white-space: nowrap;
+    }
+    .licenses .sheet tbody td {
+        padding: 1.05rem 1rem;
+        border-bottom: 1px solid var(--l-line);
+        vertical-align: middle;
+        line-height: 1.45;
+    }
+    .licenses .sheet tbody tr:hover { background: rgba(29, 92, 99, .06); }
+
+    .licenses .col-action { text-align: right !important; }
+
+    .licenses .name { display: block; font-weight: 600; font-size: 1.125rem; }
+    .licenses .sub { display: block; color: var(--l-muted); font-size: 1rem; }
+    .licenses .muted { color: var(--l-muted); }
+    .licenses .reg { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1rem; white-space: nowrap; }
+    .licenses .price { font-weight: 600; white-space: nowrap; }
+    .licenses .price small { color: var(--l-muted); font-weight: 400; font-size: .95rem; }
+
+    /* Status tag */
+    .licenses .tag {
+        display: inline-block; padding: .1rem .6rem;
+        border: 1px solid var(--l-line); border-radius: 3px;
+        background: var(--medical-card, #fafaf8); color: var(--l-muted);
+        font-size: .95rem; font-weight: 600; white-space: nowrap;
+    }
+    .licenses .tag.ok   { color: var(--l-ok);   border-color: #b9dcc5; background: #f1f8f3; }
+    .licenses .tag.warn { color: var(--l-warn); border-color: #e6c9b3; background: #fbf3ec; }
+    .licenses .tag.bad  { color: var(--l-bad);  border-color: #e3b9b9; background: #f8ecec; }
+
+    /* Actions */
+    .licenses .actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; align-items: center; }
+    .licenses .actions form { margin: 0; }
+    .licenses .row-link {
+        display: inline-block; padding: .45rem .8rem;
+        color: var(--l-accent); font-weight: 600;
+        text-decoration: underline; text-underline-offset: 4px; border-radius: 4px;
+    }
+    .licenses .row-link:hover { color: var(--medical-primary-hover, #164a50); background: rgba(29, 92, 99, .08); }
+
+    .licenses .act {
+        padding: .42rem .95rem; border-radius: 4px; font-size: 1rem; font-weight: 600; cursor: pointer;
+        border: 1px solid var(--l-accent); background: var(--l-accent); color: var(--medical-card, #fafaf8);
+    }
+    .licenses .act:hover { background: var(--medical-primary-hover, #164a50); border-color: var(--medical-primary-hover, #164a50); }
+    .licenses .act.reject { background: transparent; color: var(--l-bad); border-color: var(--l-bad); }
+    .licenses .act.reject:hover { background: var(--l-bad); color: var(--medical-card, #fafaf8); }
+
+    .licenses .empty { padding: 3.5rem 1rem; text-align: center; border-top: 2px solid var(--l-accent);
+                       border-bottom: 1px solid var(--l-line); }
+    .licenses .empty h2 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .3rem; }
+    .licenses .empty p { margin: 0 auto 1.25rem; color: var(--l-muted); max-width: 44ch; }
+
+    /* Phones: each row becomes a labelled block instead of a wide table */
+    @@media (max-width: 767.98px) {
+        .licenses .sheet-wrap { overflow-x: visible; }
+        .licenses .sheet { min-width: 0; }
+        .licenses .sheet thead { display: none; }
+        .licenses .sheet, .licenses .sheet tbody, .licenses .sheet tr, .licenses .sheet td { display: block; width: 100%; }
+        .licenses .sheet tbody tr { padding: .9rem 0; border-bottom: 1px solid var(--l-line); }
+        .licenses .sheet tbody tr:hover { background: transparent; }
+        .licenses .sheet tbody td { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem 0; border: 0; }
+        .licenses .sheet tbody td::before { content: attr(data-label); color: var(--l-muted); font-weight: 600; flex: 0 0 auto; }
+        .licenses .sheet tbody td[data-label=""]::before { display: none; }
+        .licenses .sheet tbody td.cell-title { display: block; padding-bottom: .5rem; }
+        .licenses .sheet tbody td.col-action { display: block; padding-top: .6rem; }
+        .licenses .actions { justify-content: flex-start; }
+    }
+</style>
+
+<div class="licenses">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+            <h1>@heading</h1>
+            <p class="lead-text">@lead</p>
+        </div>
+
+        <div>
+            @if (isAdmin)
+            {
+                if (isPending)
+                {
+                    <a asp-controller="AdminDashboard" asp-action="ListLicenses" class="btn btn-outline-medical">
+                        Show all licenses
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="AdminDashboard" asp-action="ListPendingLicenses" class="btn btn-outline-medical">
+                        Show pending licenses
+                    </a>
+                }
+            }
+            else
+            {
+                <a asp-controller="License" asp-action="Create" class="btn btn-medical">
+                    Add license
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="empty">
+            <h2>@emptyTitle</h2>
+            <p>@emptyText</p>
+
+            @if (!isAdmin)
+            {
+                <a asp-controller="License" asp-action="Create" class="btn btn-medical">
+                    Add your first license
+                </a>
+            }
+            else if (isPending)
+            {
+                <a asp-controller="AdminDashboard" asp-action="ListLicenses" class="btn btn-outline-medical">
+                    Show all licenses
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="meta"><strong>@count</strong> @(count == 1 ? "license" : "licenses")</div>
+
+        <div class="sheet-wrap">
+            <table class="sheet">
+                <caption class="visually-hidden">@heading</caption>
+
+                <thead>
+                    <tr>
+                        <th scope="col">License</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Registration no.</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Price</th>
+                        <th scope="col">Created</th>
+                        <th scope="col" class="col-action">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var license in Model)
+                    {
+                        <tr>
+                            <td class="cell-title" data-label="">
+                                <span class="name">@license.TradeName</span>
+                                <span class="sub">@license.ProductName</span>
+                            </td>
+
+                            <td data-label="Category">
+                                <span class="muted">@(license.LicenseCategory.HasValue ? license.LicenseCategory.ToString() : "—")</span>
+                            </td>
+
+                            <td data-label="Registration no.">
+                                <span class="reg">@license.RegistrationNumber</span>
+                            </td>
+
+                            <td data-label="Status">
+                                <span class="tag @StatusClass(license.LicenseStatus)">@license.LicenseStatus</span>
+                            </td>
+
+                            <td data-label="Price">
+                                <span class="price">@license.AskingPrice.ToString("N2") <small>EGP</small></span>
+                            </td>
+
+                            <td data-label="Created">
+                                <span class="muted">@license.CreatedAt.ToString("dd MMM yyyy")</span>
+                            </td>
+
+                            <td class="col-action" data-label="">
+                                <div class="actions">
+
+                                    @if (isAdmin)
+                                    {
+                                        <a asp-controller="AdminDashboard"
+                                           asp-action="ViewLicense"
+                                           asp-route-licenseId="@license.Id"
+                                           class="row-link">
+                                            View
+                                        </a>
+
+                                        @if (isPending)
+                                        {
+                                            <form asp-controller="AdminDashboard"
+                                                  asp-action="ApproveLicense"
+                                                  asp-route-licenseId="@license.Id"
+                                                  method="post">
+                                                <button type="submit" class="act">Approve</button>
+                                            </form>
+
+                                            <form asp-controller="AdminDashboard"
+                                                  asp-action="RejectLicense"
+                                                  asp-route-licenseId="@license.Id"
+                                                  method="post"
+                                                  onsubmit="return confirm('Reject this license?');">
+                                                <button type="submit" class="act reject">Reject</button>
+                                            </form>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="UserLicense"
+                                           asp-action="Details"
+                                           asp-route-licenseId="@license.Id"
+                                           class="row-link">
+                                            View
+                                        </a>
+                                    }
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

@@ -1,0 +1,326 @@
+﻿@{
+    ViewData["Title"] = "Home";
+
+    var isSignedIn = User.Identity?.IsAuthenticated == true;
+    var isAdmin = isSignedIn && User.IsInRole("Admin");
+    var isSeller = isSignedIn && User.IsInRole("Seller");
+    var name = User.Identity?.Name;
+}
+
+<style>
+    .home {
+        /* Soft neutrals: no pure white anywhere */
+        --paper: #f3f3ef;        /* page background */
+        --card: #fafaf8;         /* raised panels */
+        --tint: #e8e8e2;         /* alternate sections */
+        --line: #d4d6cf;
+
+        --ink: #1c2733;
+        --muted: #4f5b66;
+
+        /* Identity: deep teal, with a small clay accent */
+        --accent: #1d5c63;
+        --accent-dark: #164a50;
+        --accent-wash: #dde9e7;  /* pale teal for the intro band */
+        --deep: #17454b;         /* closing band */
+        --clay: #a8643a;
+
+        background: var(--paper);
+        color: var(--ink);
+    }
+
+    .home h1, .home h2, .home h3 { font-weight: 700; letter-spacing: -.01em; }
+    .home h1 { font-size: clamp(2rem, 4vw, 2.9rem); line-height: 1.15; }
+    .home h2 { font-size: 1.6rem; line-height: 1.25; }
+    .home h3 { font-size: 1.05rem; }
+    .home p  { color: var(--muted); line-height: 1.7; max-width: 62ch; }
+
+    /* Short teal rule above section titles */
+    .home-section h2::before {
+        content: ""; display: block; width: 36px; height: 3px;
+        margin-bottom: .8rem; background: var(--accent);
+    }
+
+    .home .btn-brand {
+        background: var(--accent); border-color: var(--accent); color: var(--card);
+        border-radius: 4px; padding: .6rem 1.2rem; font-weight: 600;
+    }
+    .home .btn-brand:hover, .home .btn-brand:focus-visible {
+        background: var(--accent-dark); border-color: var(--accent-dark); color: var(--card);
+    }
+    .home .btn-line {
+        border: 1px solid var(--ink); color: var(--ink);
+        border-radius: 4px; padding: .6rem 1.2rem; font-weight: 600;
+    }
+    .home .btn-line:hover { background: var(--ink); color: var(--card); }
+
+    /* Intro band: solid pale teal */
+    .home-intro { padding: 4.5rem 0 4rem; background: var(--accent-wash); border-bottom: 1px solid #c5d6d3; }
+    .home-intro p { color: #3f4f58; }
+
+    .home-section { padding: 4rem 0; }
+    .home-section.tint { background: var(--tint); border-block: 1px solid var(--line); }
+
+    /* Record sheet */
+    .record { border: 1px solid #c5d6d3; border-radius: 4px; background: var(--card); }
+    .record-head { padding: .8rem 1.1rem; border-bottom: 1px solid var(--line);
+                   font-weight: 600; background: var(--accent); color: var(--card);
+                   border-radius: 3px 3px 0 0; }
+    .record dl { margin: 0; }
+    .record .row-item { display: flex; justify-content: space-between; gap: 1rem;
+                        padding: .7rem 1.1rem; border-bottom: 1px solid var(--line); font-size: .92rem; }
+    .record .row-item:last-child { border-bottom: 0; }
+    .record dt { font-weight: 500; color: var(--muted); }
+    .record dd { margin: 0; text-align: right; }
+
+    /* Steps */
+    .steps { list-style: none; margin: 2rem 0 0; padding: 0; counter-reset: step;
+             display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line);
+             border-radius: 4px; background: var(--card); }
+    .steps li { padding: 1.4rem; border-right: 1px solid var(--line); counter-increment: step; }
+    .steps li:last-child { border-right: 0; }
+    .steps li::before { content: counter(step); display: grid; place-items: center;
+                        width: 28px; height: 28px; margin-bottom: .8rem; border-radius: 4px;
+                        background: var(--accent-wash); color: var(--accent-dark);
+                        font-size: .9rem; font-weight: 700; }
+    .steps h3 { margin-bottom: .4rem; }
+    .steps p { margin: 0; font-size: .92rem; }
+
+    /* Roles: teal for sellers, clay for administrators */
+    .role { height: 100%; padding: 1.6rem; border: 1px solid var(--line); border-top-width: 3px;
+            border-radius: 4px; background: var(--card); }
+    .role-seller { border-top-color: var(--accent); }
+    .role-admin  { border-top-color: var(--clay); }
+    .role ul { margin: 1rem 0 0; padding-left: 1.1rem; color: var(--muted); line-height: 1.9; }
+    .role-seller li::marker { color: var(--accent); }
+    .role-admin li::marker  { color: var(--clay); }
+
+    /* Signed-in actions */
+    .action { display: block; height: 100%; padding: 1.4rem; border: 1px solid var(--line);
+              border-left: 3px solid var(--accent); border-radius: 4px; background: var(--card);
+              color: inherit; text-decoration: none; }
+    .action:hover, .action:focus-visible { border-color: var(--accent); background: #fdfdfb; }
+    .action h3 { color: var(--accent); margin-bottom: .35rem; }
+    .action p { margin: 0; font-size: .92rem; }
+
+    /* Closing band: solid deep teal */
+    .home-cta { background: var(--deep); color: var(--paper); padding: 3.5rem 0; }
+    .home-cta p { color: #c3d3d1; }
+    .home-cta .btn-paper { background: var(--paper); color: var(--deep); border: 0;
+                           border-radius: 4px; padding: .6rem 1.4rem; font-weight: 600; }
+    .home-cta .btn-paper:hover { background: var(--card); color: var(--accent-dark); }
+
+    .home a:focus-visible, .home .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .home-cta .btn:focus-visible { outline-color: var(--paper); }
+
+    @@media (max-width: 991.98px) {
+        .steps { grid-template-columns: 1fr 1fr; }
+        .steps li:nth-child(2) { border-right: 0; }
+        .steps li:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+    @@media (max-width: 575.98px) {
+        .home-intro { padding: 3rem 0; }
+        .home-section { padding: 3rem 0; }
+        .steps { grid-template-columns: 1fr; }
+        .steps li { border-right: 0; border-bottom: 1px solid var(--line); }
+        .steps li:last-child { border-bottom: 0; }
+    }
+</style>
+
+<main class="home">
+
+@if (!isSignedIn)
+{
+    @* ================= VISITOR VIEW ================= *@
+    <text>
+
+    <section class="home-intro">
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-7">
+                    <h1 class="mb-3">Medical product licenses, submitted and reviewed in one place</h1>
+                    <p class="mb-4">
+                        Sellers submit license details and supporting documents for a product.
+                        Administrators review each submission and approve or reject it.
+                        Everyone can see the current status.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a asp-controller="Account" asp-action="Register" class="btn btn-brand">Create an account</a>
+                        <a asp-controller="Account" asp-action="Login" class="btn btn-line">Sign in</a>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="record" aria-label="Information held in a license record">
+                        <div class="record-head">What a license record holds</div>
+                        <dl>
+                            <div class="row-item"><dt>Product</dt><dd>Linked from the catalog</dd></div>
+                            <div class="row-item"><dt>Registration</dt><dd>Registration number</dd></div>
+                            <div class="row-item"><dt>Ownership</dt><dd>License holder details</dd></div>
+                            <div class="row-item"><dt>Pricing</dt><dd>Price information</dd></div>
+                            <div class="row-item"><dt>Documents</dt><dd>Supporting files</dd></div>
+                            <div class="row-item"><dt>Status</dt><dd>Pending, approved or rejected</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works" class="home-section">
+        <div class="container">
+            <h2 class="mb-2">How it works</h2>
+            <p>A license goes through four stages, and you can see where it stands at each one.</p>
+
+            <ol class="steps">
+                <li>
+                    <h3>Find the product</h3>
+                    <p>Browse the catalog and select the product the license belongs to.</p>
+                </li>
+                <li>
+                    <h3>Create the license</h3>
+                    <p>Enter the registration, ownership, pricing, and category details, and attach documents.</p>
+                </li>
+                <li>
+                    <h3>Wait for review</h3>
+                    <p>An administrator checks the submission. It stays visible in your account meanwhile.</p>
+                </li>
+                <li>
+                    <h3>Manage the result</h3>
+                    <p>See the decision, then edit or manage your licenses from your profile.</p>
+                </li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="home-section tint">
+        <div class="container">
+            <h2 class="mb-4">Who uses it</h2>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="role role-seller">
+                        <h3>Sellers</h3>
+                        <p class="mb-0">Submit licenses and keep your records current.</p>
+                        <ul>
+                            <li>Create license records</li>
+                            <li>Upload supporting documents</li>
+                            <li>Edit submitted licenses</li>
+                            <li>Track approval status</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="role role-admin">
+                        <h3>Administrators</h3>
+                        <p class="mb-0">Review every submission before it is approved.</p>
+                        <ul>
+                            <li>View all submitted licenses</li>
+                            <li>Filter for pending licenses</li>
+                            <li>Open and review license details</li>
+                            <li>Approve or reject submissions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="home-cta">
+        <div class="container">
+            <div class="row align-items-center g-3">
+                <div class="col-md-8">
+                    <h2 class="mb-1">Create an account to submit your first license</h2>
+                    <p class="mb-0">Registration takes a few minutes.</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a asp-controller="Account" asp-action="Register" class="btn btn-paper">Create an account</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    </text>
+}
+else
+{
+    @* ================= SIGNED-IN VIEW ================= *@
+    <text>
+
+    <section class="home-intro">
+        <div class="container">
+            <h1 class="mb-2">Welcome back@(string.IsNullOrWhiteSpace(name) ? "" : $", {name}")</h1>
+            <p class="mb-0">
+                @if (isAdmin)
+                {
+                    @:Review pending submissions or browse the full list of licenses.
+                }
+                else if (isSeller)
+                {
+                    @:Continue a submission, check a status, or start a new license.
+                }
+                else
+                {
+                    @:Browse products and manage your licenses.
+                }
+            </p>
+        </div>
+    </section>
+
+    <section class="home-section">
+        <div class="container">
+            <h2 class="mb-4">Where to next</h2>
+            <div class="row g-4">
+
+                <div class="col-md-6 col-lg-4">
+                    <a class="action" asp-controller="License" asp-action="List">
+                        <h3>Browse licenses</h3>
+                        <p>Search the catalog and open a product record.</p>
+                    </a>
+                </div>
+
+                @if (isAdmin)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <a class="action" asp-controller="AdminDashboard" asp-action="ListPendingLicenses">
+                            <h3>Review pending licenses</h3>
+                            <p>Check new submissions and approve or reject them.</p>
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <a class="action" asp-controller="AdminDashboard" asp-action="ListLicenses">
+                            <h3>All licenses</h3>
+                            <p>View every submitted license and its current status.</p>
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <a class="action" asp-controller="License" asp-action="Create">
+                            <h3>Create a license</h3>
+                            <p>Submit registration, ownership, pricing, and documents.</p>
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <a class="action" asp-controller="UserProfile" asp-action="ListLicenses">
+                            <h3>My licenses</h3>
+                            <p>Track status and edit the licenses you have submitted.</p>
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    @if (!isAdmin)
+    {
+        <section class="home-section tint">
+            <div class="container">
+                <h2 class="mb-2">How review works</h2>
+                <p>Submitted licenses are checked by an administrator and then marked approved or rejected. You can follow the status from your profile.</p>
+            </div>
+        </section>
+    }
+    </text>
+}
+
+</main>

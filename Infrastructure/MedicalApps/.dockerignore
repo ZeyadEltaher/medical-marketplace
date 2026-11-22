@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# .NET build artifacts
+**/bin/
+**/obj/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Docker infrastructure runtime data
+Infrastructure/**/data/
+Infrastructure/**/logs/
+
+# Certificates and secrets
+Infrastructure/**/certs/
+**/.env
+**/.env.*

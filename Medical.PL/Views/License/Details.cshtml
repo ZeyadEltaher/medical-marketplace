@@ -1,0 +1,68 @@
+@model Medical.BLL.ViewModels.License.LicenseDetailsViewModel
+
+@{
+    ViewData["Title"] = "License Details";
+
+    bool isSignedIn = User.Identity?.IsAuthenticated ?? false;
+}
+
+<div class="ld">
+
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <a asp-controller="License" asp-action="List">&larr; Product licenses</a>
+        <span>/</span>
+        Details
+    </nav>
+
+    <div class="row g-4">
+
+        <div class="col-12 col-lg-8">
+            <partial name="_LicenseInfo" model="Model" />
+        </div>
+
+        <!-- Sidebar: owner and transfer request -->
+        <div class="col-12 col-lg-4">
+            <div class="panel side">
+                <div class="section">
+                    <h2>License owner</h2>
+
+                    <a asp-controller="License"
+                    asp-action="ViewOwner"
+                    asp-route-licenseId="@Model.Id"
+                    class="owner-name">
+                        @Model.OwnerUserName
+                    </a>
+
+                    <p class="owner-role">Current license holder</p>
+
+                    @if (isSignedIn)
+                    {
+                        <form asp-controller="UserRequest"
+                              asp-action="SendRequest"
+                              asp-route-licenseId="@Model.Id"
+                              method="post">
+                            <button type="submit" class="btn btn-medical">Request transfer</button>
+                        </form>
+
+                        <p class="help">
+                            This sends a transfer request to the owner. You can follow it under
+                            "Sent transfer requests" in your account menu.
+                        </p>
+                    }
+                    else
+                    {
+                        <a asp-controller="Account"
+                           asp-action="Login"
+                           asp-route-returnUrl="@Context.Request.Path"
+                           class="btn btn-medical">
+                            Sign in to request transfer
+                        </a>
+
+                        <p class="help">You need an account to ask the owner to transfer this license.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

@@ -1,0 +1,199 @@
+@using Medical.DAL.Constants
+@model Medical.BLL.ViewModels.License.LicenseDetailsViewModel
+
+@*
+    Shared by the public details page (License/Details) and the management page
+    (UserProfile and AdminDashboard ViewLicense). Put this file in Views/Shared.
+    The including page must wrap it in <div class="ld">.
+*@
+
+@{
+    var category = Model.LicenseCategory.ToString();
+    var categoryLabel = string.IsNullOrEmpty(category) ? "Uncategorized" : category;
+
+    string statusClass, statusText, statusNote;
+
+    if (Model.LicenseStatus == LicenseStatus.Approved)
+    {
+        statusClass = "ok"; statusText = "Approved"; statusNote = "Reviewed and approved by an administrator.";
+    }
+    else if (Model.LicenseStatus == LicenseStatus.Rejected)
+    {
+        statusClass = "bad"; statusText = "Rejected"; statusNote = "This submission was not approved.";
+    }
+    else if (Model.LicenseStatus == LicenseStatus.Pending)
+    {
+        statusClass = "warn"; statusText = "Pending"; statusNote = "Waiting for an administrator to review it.";
+    }
+    else
+    {
+        statusClass = ""; statusText = "Unknown"; statusNote = "";
+    }
+
+    bool hasDocument = !string.IsNullOrWhiteSpace(Model.LicenseDocument);
+    bool isPdf = hasDocument && Model.LicenseDocument.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+}
+
+<style>
+    .ld {
+        --d-ink: var(--medical-dark, #1c2733);
+        --d-muted: var(--medical-muted, #4f5b66);
+        --d-line: var(--medical-border, #d4d6cf);
+        --d-tint: var(--medical-surface, #e8e8e2);
+        --d-card: var(--medical-card, #fafaf8);
+        --d-accent: var(--medical-primary, #1d5c63);
+        --d-ok: #1f6b3a;
+        --d-warn: #96501f;
+        --d-bad: #a63232;
+        color: var(--d-ink);
+        font-size: 1.0625rem;
+    }
+
+    .ld .crumbs { margin-bottom: 1.25rem; color: var(--d-muted); font-size: 1rem; }
+    .ld .crumbs a { color: var(--d-accent); font-weight: 600; text-underline-offset: 3px; }
+    .ld .crumbs span { margin: 0 .4rem; }
+
+    .ld .panel { background: var(--d-card); border: 1px solid var(--d-line); border-top: 3px solid var(--d-accent); border-radius: 4px; }
+    .ld .panel.warn { border-top-color: #b9743f; }
+    .ld .panel.bad  { border-top-color: var(--d-bad); }
+
+    .ld .head { padding: 1.5rem; border-bottom: 1px solid var(--d-line); }
+    .ld .meta-line { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: .9rem; }
+    .ld .category { color: var(--d-accent); font-size: .9rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .ld .tag {
+        display: inline-block; padding: .1rem .6rem; border: 1px solid var(--d-line); border-radius: 3px;
+        font-size: .95rem; font-weight: 600; white-space: nowrap; color: var(--d-muted); background: var(--d-card);
+    }
+    .ld .tag.ok   { color: var(--d-ok);   border-color: #b9dcc5; background: #f1f8f3; }
+    .ld .tag.warn { color: var(--d-warn); border-color: #e6c9b3; background: #fbf3ec; }
+    .ld .tag.bad  { color: var(--d-bad);  border-color: #e3b9b9; background: #f8ecec; }
+
+    .ld h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; margin: 0 0 .35rem; }
+    .ld .trade { color: var(--d-muted); margin: 0 0 .25rem; }
+    .ld .status-note { color: var(--d-muted); margin: 0; }
+
+    .ld .price-block { flex-shrink: 0; padding-left: 1.5rem; border-left: 1px solid var(--d-line); }
+    .ld .price-label { display: block; color: var(--d-muted); font-size: .95rem; }
+    .ld .price { font-size: 1.9rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+    .ld .price small { color: var(--d-muted); font-size: 1.05rem; font-weight: 500; }
+
+    .ld .section { padding: 1.5rem; border-bottom: 1px solid var(--d-line); }
+    .ld .section:last-child { border-bottom: 0; }
+    .ld h2 { font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--d-muted); margin: 0 0 .9rem; }
+
+    .ld dl { margin: 0; border-top: 1px solid var(--d-line); }
+    .ld .row-item { display: grid; grid-template-columns: 14rem 1fr; gap: 1rem; padding: .85rem 0; border-bottom: 1px solid var(--d-line); }
+    .ld dt { font-weight: 400; color: var(--d-muted); }
+    .ld dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+    .ld .prose { margin: 0; line-height: 1.7; white-space: pre-line; }
+    .ld .muted { color: var(--d-muted); }
+
+    .ld .doc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .9rem; }
+    .ld .doc-head h2 { margin: 0; }
+    .ld .doc-head a { color: var(--d-accent); font-weight: 600; text-underline-offset: 3px; }
+    .ld .doc-frame { display: block; width: 100%; height: 560px; border: 1px solid var(--d-line); border-radius: 4px;
+                     background: var(--d-tint); object-fit: contain; }
+
+    /* Sidebar (both pages) */
+    .ld .side { position: sticky; top: 5rem; }
+    .ld .side .section { border-bottom: 0; }
+    .ld .side-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--d-line); }
+    .ld .side-row:first-of-type { border-top: 1px solid var(--d-line); }
+    .ld .side-row span:first-child { color: var(--d-muted); }
+    .ld .side-row strong { overflow-wrap: anywhere; text-align: right; }
+    .ld .owner-name { font-size: 1.25rem; font-weight: 700; margin: 0; color: inherit; text-decoration: none; }
+    .ld .owner-name:hover { text-decoration: underline; }
+    .ld .owner-role { color: var(--d-muted); margin: 0 0 1.25rem; }
+    .ld .stack { display: grid; gap: .6rem; margin-top: 1.25rem; }
+    .ld .stack form { margin: 0; }
+    .ld .help { margin: .85rem 0 0; color: var(--d-muted); font-size: 1rem; line-height: 1.55; }
+    .ld .quiet-link { display: inline-block; margin-top: 1rem; color: var(--d-accent); font-weight: 600; text-underline-offset: 3px; }
+
+    .ld .btn-medical, .ld .btn-reject { display: block; width: 100%; padding: .65rem 1rem; font-size: 1.0625rem; text-align: center; }
+    .ld .btn-reject {
+        background: transparent; color: var(--d-bad); border: 1px solid var(--d-bad);
+        border-radius: 4px; font-weight: 600; cursor: pointer; text-decoration: none;
+    }
+    .ld .btn-reject:hover { background: var(--d-bad); color: var(--d-card); }
+
+    @@media (max-width: 991.98px) {
+        .ld .side { position: static; }
+    }
+    @@media (max-width: 767.98px) {
+        .ld h1 { font-size: 1.6rem; }
+        .ld .price-block { padding-left: 0; border-left: 0; padding-top: 1rem; border-top: 1px solid var(--d-line); }
+        .ld .doc-frame { height: 420px; }
+    }
+    @@media (max-width: 575.98px) {
+        .ld .row-item { grid-template-columns: 1fr; gap: .1rem; }
+    }
+</style>
+
+<div class="panel @statusClass">
+
+    <div class="head">
+        <div class="meta-line">
+            <span class="category">@categoryLabel</span>
+            <span class="tag @statusClass">@statusText</span>
+        </div>
+
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+            <div>
+                <h1>@Model.ProductName</h1>
+                <p class="trade">Trade name: <strong>@Model.TradeName</strong></p>
+                @if (!string.IsNullOrEmpty(statusNote))
+                {
+                    <p class="status-note">@statusNote</p>
+                }
+            </div>
+
+            <div class="price-block">
+                <span class="price-label">Asking price</span>
+                <span class="price">@Model.AskingPrice.ToString("N2") <small>EGP</small></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>License information</h2>
+        <dl>
+            <div class="row-item"><dt>Registration number</dt><dd>@Model.RegistrationNumber</dd></div>
+            <div class="row-item"><dt>Current owner company</dt><dd>@Model.CurrentOwnerCompany</dd></div>
+            <div class="row-item"><dt>Dosage form</dt><dd>@Model.DosageForm</dd></div>
+            <div class="row-item"><dt>Issue date</dt><dd>@Model.IssueDate.ToString("dd MMM yyyy")</dd></div>
+            <div class="row-item"><dt>Expiry date</dt><dd>@Model.ExpiryDate.ToString("dd MMM yyyy")</dd></div>
+            <div class="row-item"><dt>Listed on</dt><dd>@Model.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</dd></div>
+        </dl>
+    </div>
+
+    <div class="section">
+        <h2>Active ingredients</h2>
+        <p class="prose">@Model.ActiveIngredients</p>
+    </div>
+
+    <div class="section">
+        @if (hasDocument)
+        {
+            <div class="doc-head">
+                <h2>License document</h2>
+                <a href="@Model.LicenseDocument" target="_blank" rel="noopener noreferrer">Open in a new tab</a>
+            </div>
+
+            @if (isPdf)
+            {
+                <iframe src="@Model.LicenseDocument" class="doc-frame" title="License document"></iframe>
+            }
+            else
+            {
+                <img src="@Model.LicenseDocument" class="doc-frame" alt="License document" />
+            }
+        }
+        else
+        {
+            <h2>License document</h2>
+            <p class="muted mb-0">No document available.</p>
+        }
+    </div>
+
+</div>

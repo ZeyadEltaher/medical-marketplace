@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Medical.BLL/Medical.BLL.csproj" />
+  <Project Path="Medical.DAL/Medical.DAL.csproj" />
+  <Project Path="Medical.PL/Medical.PL.csproj" />
+</Solution>

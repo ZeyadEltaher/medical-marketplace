@@ -1,0 +1,13 @@
+[Unit]
+Description=SQL Server First-Time Setup
+After=basic.target
+Before=mssql-server.service
+ConditionPathExists=!/var/opt/mssql/.setup-complete
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sqlserver-secrets/sqlserver.env
+ExecStart=/usr/local/sbin/sqlserver-first-start.sh
+
+[Install]
+WantedBy=multi-user.target

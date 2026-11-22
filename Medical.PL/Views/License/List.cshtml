@@ -1,0 +1,374 @@
+@using Medical.DAL.Constants
+@model List<Medical.BLL.ViewModels.License.LicenseListViewModel>
+
+@{
+    ViewData["Title"] = "Product Licenses";
+
+    bool isSignedIn = User.Identity?.IsAuthenticated ?? false;
+
+    // Only offer categories that actually have licenses, so no chip leads to an empty page
+    var categoryChips = Enum.GetValues<LicenseCategory>()
+        .Select(c => new { Name = c.ToString(), Count = Model.Count(l => l.LicenseCategory.ToString() == c.ToString()) })
+        .Where(c => c.Count > 0)
+        .ToList();
+}
+
+<style>
+    .browse {
+        --b-ink: var(--medical-dark, #1c2733);
+        --b-muted: var(--medical-muted, #4f5b66);
+        --b-line: var(--medical-border, #d4d6cf);
+        --b-tint: var(--medical-surface, #e8e8e2);
+        --b-card: var(--medical-card, #fafaf8);
+        --b-accent: var(--medical-primary, #1d5c63);
+        --b-ok: #1f6b3a;
+        --b-warn: #96501f;
+        --b-bad: #a63232;
+        color: var(--b-ink);
+        font-size: 1.0625rem;
+    }
+
+    .browse h1 { font-size: 2rem; font-weight: 700; letter-spacing: -.01em; margin: 0 0 .35rem; }
+    .browse .lead-text { color: var(--b-muted); margin: 0; max-width: 60ch; line-height: 1.6; }
+    .browse .guest-hint { color: var(--b-muted); font-size: 1rem; }
+    .browse .guest-hint a { color: var(--b-accent); font-weight: 600; text-underline-offset: 3px; }
+
+    .browse .btn-medical { font-size: 1.0625rem; padding: .55rem 1.2rem; }
+
+    /* Toolbar */
+    .browse .toolbar { border-top: 2px solid var(--b-accent); border-bottom: 1px solid var(--b-line); padding: 1.1rem 0; }
+    .browse .field-control {
+        width: 100%; min-height: 48px; padding: .55rem .8rem;
+        border: 1px solid #b4bbb9; border-radius: 4px; background-color: var(--b-card);
+        font-size: 1.0625rem; color: var(--b-ink);
+    }
+    .browse .field-control:focus { border-color: var(--b-accent); box-shadow: 0 0 0 3px rgba(29, 92, 99, .18); outline: 0; }
+    .browse .tip { margin: .7rem 0 0; color: var(--b-muted); font-size: 1rem; }
+
+    /* Category chips: wrap on desktop, slide sideways on phones */
+    .browse .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+    .browse .chip {
+        display: inline-flex; align-items: baseline; gap: .45rem;
+        padding: .4rem .85rem; border: 1px solid #b4bbb9; border-radius: 4px;
+        background: var(--b-card); color: var(--b-ink);
+        font-size: 1.0625rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .browse .chip small { color: var(--b-muted); font-size: .95rem; font-weight: 500; }
+    .browse .chip:hover { border-color: var(--b-accent); }
+    .browse .chip.active { background: var(--b-accent); border-color: var(--b-accent); color: var(--b-card); }
+    .browse .chip.active small { color: #cfe1de; }
+    .browse .chip:focus-visible, .browse .link-btn:focus-visible { outline: 2px solid var(--b-accent); outline-offset: 2px; }
+
+    .browse .status-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin: 1.25rem 0 1rem; }
+    .browse .results-count { color: var(--b-muted); }
+    .browse .link-btn { background: none; border: 0; padding: .25rem .1rem; color: var(--b-accent);
+                        font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+    /* Cards */
+    .browse .lic-card {
+        position: relative; display: flex; flex-direction: column; height: 100%;
+        padding: 1.35rem; background: var(--b-card);
+        border: 1px solid var(--b-line); border-top: 3px solid var(--b-accent); border-radius: 4px;
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .browse .lic-card.warn { border-top-color: #b9743f; }
+    .browse .lic-card.bad  { border-top-color: var(--b-bad); }
+    .browse .lic-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(28, 39, 51, .09); border-color: #b4bbb9; }
+
+    .browse .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
+    .browse .category { color: var(--b-accent); font-size: .9rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+
+    .browse .tag {
+        display: inline-block; padding: .1rem .6rem; border: 1px solid var(--b-line); border-radius: 3px;
+        font-size: .95rem; font-weight: 600; white-space: nowrap; color: var(--b-muted); background: var(--b-card);
+    }
+    .browse .tag.ok   { color: var(--b-ok);   border-color: #b9dcc5; background: #f1f8f3; }
+    .browse .tag.warn { color: var(--b-warn); border-color: #e6c9b3; background: #fbf3ec; }
+    .browse .tag.bad  { color: var(--b-bad);  border-color: #e3b9b9; background: #f8ecec; }
+
+    .browse .lic-title { margin: .9rem 0 .15rem; font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
+    .browse .lic-title a { color: var(--b-ink); text-decoration: none; }
+    .browse .lic-title a:hover { color: var(--b-accent); }
+    .browse .trade { color: var(--b-muted); margin: 0 0 .9rem; }
+    .browse .status-note { margin: 0 0 .9rem; color: var(--b-muted); line-height: 1.5; }
+    .browse .byline { margin: 0; padding-top: .9rem; border-top: 1px solid var(--b-line); color: var(--b-muted); line-height: 1.5; }
+    .browse .byline strong { color: var(--b-ink); font-weight: 600; }
+
+    .browse .card-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-top: auto; padding-top: 1.1rem; }
+    .browse .price-label { display: block; color: var(--b-muted); font-size: .95rem; }
+    .browse .price { font-size: 1.5rem; font-weight: 700; letter-spacing: -.01em; }
+    .browse .price small { color: var(--b-muted); font-size: 1rem; font-weight: 500; }
+    .browse .go { color: var(--b-accent); font-weight: 600; white-space: nowrap; }
+    .browse .lic-card:hover .go { text-decoration: underline; text-underline-offset: 4px; }
+
+    /* Empty and end states */
+    .browse .panel { padding: 3rem 1.25rem; text-align: center; border: 1px solid var(--b-line); border-top: 3px solid var(--b-accent);
+                     border-radius: 4px; background: var(--b-card); }
+    .browse .panel h2 { font-size: 1.3rem; font-weight: 700; margin: 0 0 .35rem; }
+    .browse .panel p { margin: 0 auto 1.25rem; color: var(--b-muted); max-width: 46ch; line-height: 1.6; }
+    .browse .panel p:last-child { margin-bottom: 0; }
+
+    .browse .end-note { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--b-line);
+                        text-align: center; color: var(--b-muted); }
+    .browse .end-note a { color: var(--b-accent); font-weight: 600; text-underline-offset: 3px; }
+
+    @@media (max-width: 767.98px) {
+        .browse h1 { font-size: 1.7rem; }
+        .browse .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .5rem; scrollbar-width: thin; }
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .browse .lic-card { transition: none; }
+        .browse .lic-card:hover { transform: none; }
+    }
+</style>
+
+<div class="browse" id="top">
+
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-4">
+        <div>
+            <h1>Product licenses</h1>
+            <p class="lead-text">
+                Browse every licensed product on the platform. Search, filter, and open any record
+                to see the full story behind the paperwork.
+            </p>
+        </div>
+        <a asp-controller="License" asp-action="Create" class="btn btn-medical">Add license</a>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="panel">
+            <h2>The shelf is empty</h2>
+            <p>
+                No product licenses have been published yet. When sellers add them, they will appear here.
+                Check back soon@(isSignedIn ? ", or be the first to list one." : ".")
+            </p>
+
+            @if (isSignedIn)
+            {
+                <a asp-controller="License" asp-action="Create" class="btn btn-medical">Add the first license</a>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Search, category chips, sort -->
+        <div class="toolbar">
+            <div class="row g-3">
+                <div class="col-12 col-lg-8">
+                    <label for="licenseSearch" class="visually-hidden">Search licenses</label>
+                    <input id="licenseSearch" type="search" class="field-control"
+                           placeholder="Search by product, trade name, category or owner" autocomplete="off" />
+                </div>
+
+                <div class="col-12 col-lg-4">
+                    <label for="sortLicenses" class="visually-hidden">Sort licenses</label>
+                    <select id="sortLicenses" class="field-control">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="price-low">Price: low to high</option>
+                        <option value="price-high">Price: high to low</option>
+                        <option value="name">Product name (A to Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chips" role="group" aria-label="Filter by category">
+                <button type="button" class="chip active" data-category="" aria-pressed="true">
+                    All <small>@Model.Count</small>
+                </button>
+
+                @foreach (var chip in categoryChips)
+                {
+                    <button type="button" class="chip" data-category="@chip.Name" aria-pressed="false">
+                        @chip.Name <small>@chip.Count</small>
+                    </button>
+                }
+            </div>
+
+            <p class="tip">Tip: search an owner's username to see everything they have listed.</p>
+        </div>
+
+        <div class="status-bar">
+            <span id="resultsCount" class="results-count" aria-live="polite">
+                @Model.Count @(Model.Count == 1 ? "license" : "licenses")
+            </span>
+            <button type="button" id="clearFilters" class="link-btn d-none">Clear filters</button>
+        </div>
+
+        <!-- Grid -->
+        <div id="licenseGrid" class="row g-4">
+            @foreach (var license in Model)
+            {
+                var category = license.LicenseCategory.ToString();
+                var categoryLabel = string.IsNullOrEmpty(category) ? "Uncategorized" : category;
+
+                string statusClass, statusText, statusNote;
+
+                if (license.LicenseStatus == LicenseStatus.Approved.ToString())
+                {
+                    statusClass = "ok"; statusText = "Approved"; statusNote = "Reviewed and approved by an administrator.";
+                }
+                else if (license.LicenseStatus == LicenseStatus.Rejected.ToString())
+                {
+                    statusClass = "bad"; statusText = "Rejected"; statusNote = "This submission was not approved.";
+                }
+                else
+                {
+                    statusClass = "warn"; statusText = "Pending"; statusNote = "Waiting for an administrator to review it.";
+                }
+
+                <div class="col-12 col-md-6 col-xl-4 license-item"
+                     data-category="@category"
+                     data-search="@($"{license.ProductName} {license.TradeName} {license.OwnerUserName} {category}")"
+                     data-price="@license.AskingPrice"
+                     data-created="@license.CreatedAt.Ticks"
+                     data-name="@license.ProductName">
+
+                    <article class="lic-card @(statusClass == "ok" ? "" : statusClass)">
+
+                        <div class="card-top">
+                            <span class="category">@categoryLabel</span>
+                            <span class="tag @statusClass">@statusText</span>
+                        </div>
+
+                        <h2 class="lic-title">
+                            <a class="stretched-link" 
+                                asp-controller="License" 
+                                asp-action="Details" 
+                                asp-route-licenseId="@license.Id">
+                                @license.ProductName
+                            </a>
+                        </h2>
+
+                        <p class="trade">Trade name: @license.TradeName</p>
+                        <p class="status-note">@statusNote</p>
+
+                        <p class="byline">
+                            Listed by <strong>@license.OwnerUserName</strong>
+                            on @license.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")
+                        </p>
+
+                        <div class="card-foot">
+                            <div>
+                                <span class="price-label">Asking price</span>
+                                <span class="price">@license.AskingPrice.ToString("N2") <small>EGP</small></span>
+                            </div>
+                            <span class="go" aria-hidden="true">View details &rarr;</span>
+                        </div>
+
+                    </article>
+                </div>
+            }
+        </div>
+
+        <!-- No matches -->
+        <div id="noSearchResults" class="panel d-none mt-3">
+            <h2>Nothing matches that</h2>
+            <p>Try fewer words, a different category, or clear the filters and start fresh.</p>
+        </div>
+
+        <!-- End of list -->
+        <div id="endNote" class="end-note">
+            That's the end of the shelf. Try another category or search to keep exploring,
+            or <a href="#top">head back to the top</a>.
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const searchInput = document.getElementById("licenseSearch");
+            const sortSelect = document.getElementById("sortLicenses");
+            const grid = document.getElementById("licenseGrid");
+            const resultsCount = document.getElementById("resultsCount");
+            const noResults = document.getElementById("noSearchResults");
+            const endNote = document.getElementById("endNote");
+            const clearButton = document.getElementById("clearFilters");
+            const chips = Array.from(document.querySelectorAll(".chip"));
+
+            if (!grid) return;
+
+            const items = Array.from(grid.querySelectorAll(".license-item"));
+            let category = "";
+
+            function plural(n) {
+                return `${n} license${n === 1 ? "" : "s"}`;
+            }
+
+            function setCategory(value) {
+                category = value;
+                chips.forEach(chip => {
+                    const on = chip.dataset.category === value;
+                    chip.classList.toggle("active", on);
+                    chip.setAttribute("aria-pressed", on ? "true" : "false");
+                });
+            }
+
+            function updateLicenses() {
+
+                const search = searchInput.value.trim().toLowerCase();
+
+                const visibleItems = items.filter(item => {
+
+                    const matchesSearch = item.dataset.search.toLowerCase().includes(search);
+                    const matchesCategory = !category || item.dataset.category === category;
+                    const show = matchesSearch && matchesCategory;
+
+                    item.classList.toggle("d-none", !show);
+                    return show;
+                });
+
+                switch (sortSelect.value) {
+                    case "oldest":
+                        visibleItems.sort((a, b) => Number(a.dataset.created) - Number(b.dataset.created));
+                        break;
+                    case "price-low":
+                        visibleItems.sort((a, b) => Number(a.dataset.price) - Number(b.dataset.price));
+                        break;
+                    case "price-high":
+                        visibleItems.sort((a, b) => Number(b.dataset.price) - Number(a.dataset.price));
+                        break;
+                    case "name":
+                        visibleItems.sort((a, b) => a.dataset.name.localeCompare(b.dataset.name));
+                        break;
+                    default:
+                        visibleItems.sort((a, b) => Number(b.dataset.created) - Number(a.dataset.created));
+                }
+
+                visibleItems.forEach(item => grid.appendChild(item));
+
+                resultsCount.textContent = visibleItems.length === items.length
+                    ? plural(items.length)
+                    : `Showing ${visibleItems.length} of ${plural(items.length)}`;
+
+                noResults.classList.toggle("d-none", visibleItems.length !== 0);
+                endNote.classList.toggle("d-none", visibleItems.length === 0);
+                clearButton.classList.toggle("d-none", !search && !category);
+            }
+
+            chips.forEach(chip => {
+                chip.addEventListener("click", function () {
+                    setCategory(chip.dataset.category);
+                    updateLicenses();
+                });
+            });
+
+            clearButton.addEventListener("click", function () {
+                searchInput.value = "";
+                setCategory("");
+                updateLicenses();
+                searchInput.focus();
+            });
+
+            searchInput.addEventListener("input", updateLicenses);
+            sortSelect.addEventListener("change", updateLicenses);
+
+            updateLicenses();
+        });
+    </script>
+}

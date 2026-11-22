@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import time
+import http.client
+import getopt
+from urllib.parse import urlparse
+
+# ==============================================================================
+# Standard XML Metadata required by Pacemaker
+# ==============================================================================
+METADATA_XML = """<?xml version="1.0" ?>
+<resource-agent name="fence_docker" shortdesc="Custom TCP/HTTP Docker STONITH Agent">
+  <longdesc>
+    Fences remote or local Docker containers via Docker Engine TCP HTTP API.
+    Supports multi-host topologies by mapping target nodes to specific Docker Daemon endpoints.
+  </longdesc>
+  <parameters>
+    <parameter name="action" unique="0" required="1">
+      <getopt mixed="-o, --action=[action]" />
+      <content type="string" default="reboot" />
+      <shortdesc lang="en">Fencing action (off, on, reboot, status, list, monitor, metadata)</shortdesc>
+    </parameter>
+    <parameter name="port" unique="0" required="0">
+      <getopt mixed="-n, --plug=[id]" />
+      <content type="string" />
+      <shortdesc lang="en">Target container/node name (e.g., sqlserver-2)</shortdesc>
+    </parameter>
+    <parameter name="plug" unique="0" required="0">
+      <content type="string" />
+      <shortdesc lang="en">Alias for port parameter</shortdesc>
+    </parameter>
+    <parameter name="host_map" unique="0" required="1">
+      <content type="string" />
+      <shortdesc lang="en">Comma-separated mapping of node=http://ip:port</shortdesc>
+    </parameter>
+    <parameter name="timeout" unique="0" required="0">
+      <content type="integer" default="10" />
+      <shortdesc lang="en">Timeout in seconds</shortdesc>
+    </parameter>
+  </parameters>
+  <actions>
+    <action name="on" automatic="0"/>
+    <action name="off" />
+    <action name="reboot" />
+    <action name="status" />
+    <action name="list" />
+    <action name="monitor" />
+    <action name="metadata" />
+  </actions>
+</resource-agent>
+"""
+
+def log_err(msg: str):
+    sys.stderr.write(f"[fence_docker] {msg}\n")
+    sys.stderr.flush()
+
+def parse_input() -> dict:
+    params = {}
+    
+    # 1. Read from Pacemaker OCF environment variables if present
+    for k, v in os.environ.items():
+        if k.startswith("OCF_RESKEY_"):
+            params[k[len("OCF_RESKEY_"):].lower()] = v
+
+    # 2. Read from stdin (Pacemaker standard pipe)
+    if not sys.stdin.isatty():
+        for line in sys.stdin:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                k, v = line.split("=", 1)
+                params[k.strip().lower()] = v.strip()
+
+    # 3. Parse command line arguments supporting getopt flags (-o, -n, etc.) and key=value
+    try:
+        opts, args = getopt.gnu_getopt(
+            sys.argv[1:],
+            "o:n:p:h:",
+            ["action=", "plug=", "port=", "host_map=", "timeout="]
+        )
+        for o, a in opts:
+            if o in ("-o", "--action"):
+                params["action"] = a
+            elif o in ("-n", "-p", "--plug", "--port"):
+                params["port"] = a
+                params["plug"] = a
+            elif o in ("--host_map",):
+                params["host_map"] = a
+            elif o in ("--timeout",):
+                params["timeout"] = a
+    except Exception:
+        pass
+
+    for arg in sys.argv[1:]:
+        if "=" in arg:
+            k, v = arg.split("=", 1)
+            params[k.strip().lower()] = v.strip()
+            
+    return params
+
+def parse_host_map(map_str: str) -> dict:
+    mapping = {}
+    if not map_str:
+        return mapping
+    for entry in map_str.split(","):
+        entry = entry.strip()
+        if "=" in entry:
+            node, url = entry.split("=", 1)
+            mapping[node.strip()] = url.strip()
+    return mapping
+
+def docker_api_request(endpoint_url: str, method: str, path: str, timeout: int = 20):
+    parsed = urlparse(endpoint_url)
+    host = parsed.hostname
+    port = parsed.port or 2375
+    
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request(method, path)
+        resp = conn.getresponse()
+        body = resp.read().decode("utf-8", errors="replace")
+        return resp.status, body
+    finally:
+        conn.close()
+
+def verify_container_stopped(endpoint_url: str, container: str, timeout: int) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status, body = docker_api_request(endpoint_url, "GET", f"/containers/{container}/json", timeout=5)
+        if status == 200:
+            data = json.loads(body)
+            if not data.get("State", {}).get("Running", True):
+                return True
+        elif status == 404:
+            return True
+        time.sleep(0.5)
+    return False
+
+def main():
+    params = parse_input()
+    action = params.get("action", "").lower()
+
+    if action == "metadata":
+        print(METADATA_XML)
+        sys.exit(0)
+
+    target = params.get("port") or params.get("plug")
+    host_map = parse_host_map(params.get("host_map", ""))
+    timeout = int(params.get("timeout", 10))
+
+    if not host_map:
+        log_err("Missing required parameter: host_map")
+        sys.exit(2)
+
+    if action == "list":
+        for node_name in host_map.keys():
+            print(node_name)
+        sys.exit(0)
+
+    if action == "monitor" and not target:
+        try:
+            for node_name, url in host_map.items():
+                status, _ = docker_api_request(url, "GET", "/_ping", timeout=5)
+                if status != 200:
+                    log_err(f"Monitor failed for {node_name} at {url} (HTTP {status})")
+                    sys.exit(1)
+            sys.exit(0)
+        except Exception as e:
+            log_err(f"Monitor exception: {e}")
+            sys.exit(1)
+
+    if not target:
+        log_err(f"Action '{action}' requires 'port' or 'plug' parameter")
+        sys.exit(2)
+
+    endpoint_url = host_map.get(target)
+    if not endpoint_url:
+        log_err(f"Target '{target}' not found in host_map")
+        sys.exit(2)
+
+    try:
+        if action in ("status", "monitor"):
+            status, body = docker_api_request(endpoint_url, "GET", f"/containers/{target}/json", timeout=5)
+            if status == 200:
+                data = json.loads(body)
+                is_running = data.get("State", {}).get("Running", False)
+                sys.exit(0 if is_running else 2)
+            else:
+                log_err(f"Status check failed for {target}: HTTP {status}")
+                sys.exit(1)
+
+        elif action == "off":
+            log_err(f"Executing STONITH OFF on {target} via {endpoint_url}")
+            status, body = docker_api_request(endpoint_url, "POST", f"/containers/{target}/stop?t=2", timeout=timeout)
+            if status not in (204, 304):
+                log_err(f"Failed to stop {target}: HTTP {status} - {body}")
+                sys.exit(1)
+
+            if verify_container_stopped(endpoint_url, target, timeout):
+                log_err(f"Verified {target} is completely stopped.")
+                sys.exit(0)
+            else:
+                log_err(f"Timeout waiting for {target} to stop!")
+                sys.exit(1)
+
+        elif action == "on":
+            log_err(f"Executing STONITH ON on {target} via {endpoint_url}")
+            status, body = docker_api_request(endpoint_url, "POST", f"/containers/{target}/start", timeout=timeout)
+            if status in (204, 304):
+                sys.exit(0)
+            log_err(f"Failed to start {target}: HTTP {status} - {body}")
+            sys.exit(1)
+
+        elif action == "reboot":
+            log_err(f"Executing STONITH REBOOT on {target} via {endpoint_url}")
+            status, body = docker_api_request(endpoint_url, "POST", f"/containers/{target}/restart?t=2", timeout=timeout)
+            if status == 204:
+                sys.exit(0)
+            log_err(f"Failed to restart {target}: HTTP {status} - {body}")
+            sys.exit(1)
+
+        else:
+            log_err(f"Unsupported action: '{action}'")
+            sys.exit(2)
+
+    except Exception as e:
+        log_err(f"Communication error with {endpoint_url}: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

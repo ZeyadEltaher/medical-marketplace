@@ -1,0 +1,51 @@
+@model List<Medical.BLL.ViewModels.UserRequest.RequestListViewModel>
+
+@{
+    ViewData["Title"] = "My transfer requests";
+
+    // The active filter comes from the action that rendered this view, not from the URL text
+    string currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+
+    var filters = new (string Label, string Action)[]
+    {
+        ("All", "ListSentRequests"),
+        ("Pending", "ListPendingSentRequests"),
+        ("Approved", "ListApprovedSentRequests"),
+        ("Rejected", "ListRejectedSentRequests"),
+        ("Cancelled", "ListCancelledSentRequests")
+    };
+
+    string statusLabel = filters.FirstOrDefault(f => f.Action == currentAction).Label ?? "All";
+}
+
+<div class="requests">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2 mb-4">
+        <div>
+            <h1>My transfer requests</h1>
+            <p class="lead-text">Track the transfer requests you have submitted.</p>
+        </div>
+
+        <div class="count">
+            <strong>@Model.Count</strong> @(Model.Count == 1 ? "request" : "requests")
+        </div>
+    </div>
+
+    <!-- Status filter -->
+    <nav class="chips" aria-label="Filter by status">
+        @foreach (var filter in filters)
+        {
+            bool active = filter.Action == currentAction;
+
+            <a asp-controller="UserRequest"
+               asp-action="@filter.Action"
+               class="chip @(active ? "active" : "")"
+               aria-current="@(active ? "page" : null)">@filter.Label</a>
+        }
+    </nav>
+
+    <partial name="_RequestsSheet"
+             model="Model"
+             view-data='new ViewDataDictionary(ViewData) { { "Mode", "sent" }, { "StatusLabel", statusLabel } }' />
+
+</div>
