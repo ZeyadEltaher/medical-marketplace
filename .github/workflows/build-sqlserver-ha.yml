@@ -1,0 +1,51 @@
+name: Build SQL Server HA Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build and push SQL Server images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The HA Dockerfile uses FROM sqlserver:2025.
+      # Build and push the base image before building the HA image.
+      - name: Build SQL Server base image
+        run: |
+          docker build \
+            --pull \
+            --file Infrastructure/SqlServerBase/Dockerfile \
+            --tag sqlserver:2025 \
+            Infrastructure/SqlServerBase
+
+      - name: Push SQL Server base image
+        run: |
+          docker tag sqlserver:2025 ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/sqlserver:2025
+          docker push ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/sqlserver:2025
+
+      - name: Build SQL Server HA image
+        run: |
+          docker build \
+            --file Infrastructure/SqlServerHaCluster/Dockerfile \
+            --tag sqlserver-ha:2025 \
+            Infrastructure/SqlServerHaCluster
+
+      - name: Push SQL Server HA image
+        run: |
+          docker tag sqlserver-ha:2025 ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/sqlserver-ha:2025
+          docker push ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/sqlserver-ha:2025
