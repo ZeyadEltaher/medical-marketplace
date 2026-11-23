@@ -4,7 +4,7 @@ x-medical-common: &medical-common
 
   build:
     context: ../..
-    dockerfile: Medical.PL/Dockerfile
+    dockerfile: Dockerfile
 
   restart: unless-stopped
 
