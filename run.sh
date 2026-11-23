@@ -57,7 +57,8 @@ cat <<'EOF'
 EOF
 
 cd "$PROJECT_DIR/Infrastructure/SqlServerHaCluster"
-bash ./scripts/main/main.sh
+bash ./scripts/main/setup-ha-cluster.sh
+bash ./scripts/main/setup-sql-ha.sh
 
 echo "SQL Server HA Cluster started successfully."
 echo "--------------------------------------------------------------------"

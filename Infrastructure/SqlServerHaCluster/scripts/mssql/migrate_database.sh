@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Resolve project directory
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/../../../../" && pwd)"
 
+# Load database credentials and configuration
 ENV_FILE="${ENV_FILE:-$PROJECT_DIR/Infrastructure/SqlServerHaCluster/secrets/sqlserver.env}"
 
 if [[ -f "$ENV_FILE" ]]; then
@@ -15,89 +17,46 @@ else
     echo "Warning: Secrets file not found at '$ENV_FILE', relying on pre-exported environment variables."
 fi
 
-SQLCMD_BIN="${SQLCMD_BIN:-$(command -v sqlcmd || echo /opt/mssql-tools18/bin/sqlcmd)}"
+# Define migration container configuration
+MIGRATION_IMAGE="${MIGRATION_IMAGE:-medical-migration:latest}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-host}"
+
+# Define SQL Server connection parameters
 SQL_HOST="${SQL_HOST:-172.32.0.100}"
 SQL_PORT="${SQL_PORT:-1433}"
 SQL_DB="${SQL_DB:-MedicalDB}"
 SQL_USER="${SQL_USER:-sa}"
 SQL_PASSWORD="${MSSQL_SA_PASSWORD:?MSSQL_SA_PASSWORD is required}"
-CHECK_TABLE="${CHECK_TABLE:-__EFMigrationsHistory}"
 
-PROJECT_PATH="${PROJECT_PATH:-$PROJECT_DIR/Medical.DAL/Medical.DAL.csproj}"
-STARTUP_PROJECT="${STARTUP_PROJECT:-$PROJECT_DIR/Medical.PL/Medical.PL.csproj}"
-
+# Build SQL Server connection string
 CONN_STR="Server=${SQL_HOST},${SQL_PORT};Database=${SQL_DB};User Id=${SQL_USER};Password=${SQL_PASSWORD};TrustServerCertificate=True;MultiSubnetFailover=True;"
 
-echo "Checking SQL Server connectivity on ${SQL_HOST}:${SQL_PORT}..."
+echo "Starting Database Migration Container..."
 
-"$SQLCMD_BIN" \
-    -S "${SQL_HOST},${SQL_PORT}" \
-    -U "$SQL_USER" \
-    -P "$SQL_PASSWORD" \
-    -d "$SQL_DB" \
-    -C \
-    -b \
-    -Q "SELECT 1;" \
-    >/dev/null
+echo "-----------------------------------------------------------------------"
 
-echo "SQL Server connectivity verified successfully."
-
-echo "--------------------------------------------------------------------"
-
-echo "Checking whether '${CHECK_TABLE}' exists in ${SQL_DB}..."
-
-TABLE_EXISTS=$(
-    "$SQLCMD_BIN" \
-        -S "${SQL_HOST},${SQL_PORT}" \
-        -U "$SQL_USER" \
-        -P "$SQL_PASSWORD" \
-        -d "$SQL_DB" \
-        -C \
-        -b \
-        -h -1 \
-        -W \
-        -Q "
-            SET NOCOUNT ON;
-
-            SELECT
-                CASE
-                    WHEN OBJECT_ID(N'dbo.${CHECK_TABLE}', N'U') IS NOT NULL
-                    THEN 1
-                    ELSE 0
-                END;
-        " | tr -d '[:space:]'
-)
-
-if [[ "$TABLE_EXISTS" != "0" && "$TABLE_EXISTS" != "1" ]]; then
-    echo "Error: Unexpected table existence result: '${TABLE_EXISTS}'"
+# Verify that the migration image exists locally
+if ! docker image inspect "$MIGRATION_IMAGE" >/dev/null 2>&1; then
+    echo "Error: Migration image '$MIGRATION_IMAGE' not found!"
+    echo "Build or pull the migration image before running this script."
     exit 1
 fi
 
-echo "Table existence check completed successfully."
+echo "Migration Image: $MIGRATION_IMAGE"
+echo "SQL Server: ${SQL_HOST}:${SQL_PORT}"
+echo "Database: $SQL_DB"
+echo "Docker Network: $DOCKER_NETWORK"
 
-echo "--------------------------------------------------------------------"
+echo "-----------------------------------------------------------------------"
 
-if [[ "$TABLE_EXISTS" == "1" ]]; then
-    echo "Table '${CHECK_TABLE}' already exists in ${SQL_DB}."
-    echo "Skipping initial migration."
+# Run the migration bundle inside an isolated container
+docker run --rm \
+    --network "$DOCKER_NETWORK" \
+    --env "DB_CONNECTION=$CONN_STR" \
+    --entrypoint /bin/sh \
+    "$MIGRATION_IMAGE" \
+    -c 'exec /app/efbundle --connection "$DB_CONNECTION"'
 
-    echo "--------------------------------------------------------------------"
+echo "-----------------------------------------------------------------------"
 
-    exit 0
-fi
-
-echo "Restoring NuGet packages..."
-
-dotnet restore "$PROJECT_PATH"
-dotnet restore "$STARTUP_PROJECT"
-
-echo "--------------------------------------------------------------------"
-
-echo "Running EF Core database migrations..."
-
-dotnet ef database update \
-    --project "$PROJECT_PATH" \
-    --startup-project "$STARTUP_PROJECT" \
-    --connection "$CONN_STR"
-
-echo "EF Core database migrations completed successfully."
+echo "Database migrations completed successfully."
