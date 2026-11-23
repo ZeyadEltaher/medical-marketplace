@@ -25,12 +25,17 @@ jobs:
 
       - name: Build Medical App image
         run: |
+          OWNER_LOWER=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_TAG="ghcr.io/${OWNER_LOWER}/medical-app:latest"
+
           docker build \
             --pull \
             --file Dockerfile \
             --tag medical-app:latest \
-            --tag ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/medical-app:latest \
+            --tag "$IMAGE_TAG" \
             .
 
       - name: Push Medical App image
-        run: docker push ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/medical-app:latest
+        run: |
+          OWNER_LOWER=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push "ghcr.io/${OWNER_LOWER}/medical-app:latest"
