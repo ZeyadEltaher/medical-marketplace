@@ -1,0 +1,42 @@
+name: Build Medical Migration Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build and push Medical Migration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Medical Migration image
+        run: |
+          OWNER_LOWER=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_TAG="ghcr.io/${OWNER_LOWER}/medical-migration:latest"
+
+          docker build \\
+            --pull \\
+            --file Dockerfile \\
+            --target migration \\
+            --tag medical-migration:latest \\
+            --tag "$IMAGE_TAG" \\
+            .
+
+      - name: Push Medical Migration image
+        run: |
+          OWNER_LOWER=$(printf '%s' "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push "ghcr.io/${OWNER_LOWER}/medical-migration:latest"
