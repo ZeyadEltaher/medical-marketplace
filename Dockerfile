@@ -39,9 +39,9 @@ ENV PATH="$PATH:/root/.dotnet/tools"
 RUN dotnet ef migrations bundle \
     --project "Medical.DAL/Medical.DAL.csproj" \
     --startup-project "Medical.PL/Medical.PL.csproj" \
+    --configuration Release \
     --self-contained \
     -r linux-x64 \
-    -c Release \
     -o /app/efbundle
 
 # ========== Build Stage Output ========== #
