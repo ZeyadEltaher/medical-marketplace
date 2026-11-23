@@ -1,4 +1,4 @@
-# ================ Build Stage ================ #
+# ========================== Build Stage ========================== #
 
 # Use .NET SDK image to build the application and migration bundle
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
@@ -41,11 +41,10 @@ RUN dotnet ef migrations bundle \
     --startup-project "Medical.PL/Medical.PL.csproj" \
     --self-contained \
     -r linux-x64 \
-    --no-build \
     -c Release \
     -o /app/efbundle
 
-# ===== Build Stage Output ===== #
+# ========== Build Stage Output ========== #
 # - /app/publish/Medical.PL.dll (for runtime)
 # - /app/publish/Medical.BLL.dll (for runtime)
 # - /app/publish/Medical.DAL.dll (for runtime)
@@ -54,7 +53,7 @@ RUN dotnet ef migrations bundle \
 
 
 
-# ================ Migration Stage ================ #
+# ========================== Migration Stage ========================== #
 
 # Use a lightweight Debian image to run database migrations
 FROM debian:stable-slim AS migration
@@ -75,13 +74,13 @@ COPY --from=build /app/efbundle .
 # Execute the migration bundle when the container starts
 ENTRYPOINT ["/app/efbundle"]
 
-# ===== Migration Stage Output ===== #
+# ========== Migration Stage Output ========== #
 # - Database Migration are applied
 
 
 
 
-# ================ Runtime Stage ================ #
+# ========================== Runtime Stage ========================== #
 
 # Use the ASP.NET Core runtime image to run the web application
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -98,5 +97,5 @@ EXPOSE 7110
 # Start the ASP.NET Core application
 ENTRYPOINT ["dotnet", "Medical.PL.dll"]
 
-# ===== Runtime Stage Output ===== #
+# ========== Runtime Stage Output ========== #
 # - Runs Medical.PL web application
