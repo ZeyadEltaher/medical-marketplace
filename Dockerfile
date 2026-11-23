@@ -42,6 +42,7 @@ RUN dotnet ef migrations bundle \
     --configuration Release \
     --self-contained \
     -r linux-x64 \
+    --verbose \
     -o /app/efbundle
 
 # ========== Build Stage Output ========== #
